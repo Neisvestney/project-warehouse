@@ -19,4 +19,5 @@ public record ExternalAccrualLine(
     string? RawTypeId,
     string? Sku,
     decimal Amount,
-    string? CurrencyCode);
+    string? CurrencyCode,
+    decimal? PlatformDiscountAmount = null);

@@ -29,6 +29,7 @@ public class OrderFinanceServiceTests(TokenDatabase database) : IClassFixture<To
         var foreign = Order(otherAccount, "foreign", "unit");
         var sale = Accrual(account, current, "unit", 500);
         sale.Category = MarketplaceAccrualCategory.Sale;
+        sale.PlatformDiscountAmount = 125;
         sale.Date = new DateOnly(2026, 9, 1);
         var fee = Accrual(account, current, null, -25);
         var linkedFee = Accrual(account, linked, "unit", -35);
@@ -47,8 +48,10 @@ public class OrderFinanceServiceTests(TokenDatabase database) : IClassFixture<To
 
         Assert.Equal(new[] { sale.Id, fee.Id }.Order(), result.Accruals.Select(a => a.Id).Order());
         Assert.All(result.Accruals, a => Assert.Null(a.ItemName));
+        Assert.Equal(125m, result.Accruals.Single(a => a.Id == sale.Id).PlatformDiscountAmount);
         var exemplar = Assert.Single(result.Exemplars);
         Assert.Equal("unit", exemplar.ExemplarId);
+        Assert.Equal(125m, exemplar.Accruals.Single(a => a.Id == sale.Id).PlatformDiscountAmount);
         Assert.Equal(restricted, exemplar.HasRestrictedHistory);
         var expectedOrders = restricted ? new[] { current.Id } : new[] { current.Id, linked.Id, labelOnly.Id };
         Assert.Equal(expectedOrders.Order(), exemplar.Orders.Select(o => o.Id).Order());

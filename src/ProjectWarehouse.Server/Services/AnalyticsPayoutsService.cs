@@ -47,6 +47,7 @@ public class AnalyticsPayoutsService(
         public MarketplaceAccrualSource Source { get; init; }
         public bool ByPosting { get; init; }
         public decimal Amount { get; init; }
+        public decimal? PlatformDiscountAmount { get; init; }
     }
 
     private enum Bucket { InTransit, DeliveredNotAccrued, NotAccruedByMarketplace }
@@ -117,6 +118,7 @@ public class AnalyticsPayoutsService(
                             Source = x.Source,
                             ByPosting = x.ByPosting,
                             Amount = x.Amount,
+                            PlatformDiscountAmount = x.PlatformDiscountAmount,
                         })
                         .ToList(),
                     options))
@@ -539,6 +541,8 @@ public class AnalyticsPayoutsService(
                 Source = g.Key.Source,
                 ByPosting = g.Key.ByPosting,
                 Amount = g.Sum(a => a.Amount),
+                PlatformDiscountAmount = g.Any(a => a.PlatformDiscountAmount != null)
+                    ? g.Sum(a => a.PlatformDiscountAmount) : null,
             })
             .ToListAsync(ct);
 
@@ -622,6 +626,8 @@ public class AnalyticsPayoutsService(
                             Source = x.Key.Source,
                             ByPosting = x.Key.ByPosting,
                             Amount = x.Sum(y => y.Amount),
+                            PlatformDiscountAmount = x.Any(y => y.PlatformDiscountAmount != null)
+                                ? x.Sum(y => y.PlatformDiscountAmount) : null,
                         })
                         .ToList(),
                 };

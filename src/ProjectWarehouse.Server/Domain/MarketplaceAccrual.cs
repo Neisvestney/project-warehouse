@@ -54,6 +54,9 @@ public class MarketplaceAccrual : IHasIdentity
     /// <summary>Signed: what the seller receives is positive, what the marketplace keeps is negative.</summary>
     public decimal Amount { get; set; }
 
+    // Informational sale-line discount funded by the platform; reversed with the sale, excluded from net.
+    public decimal? PlatformDiscountAmount { get; set; }
+
     public string? CurrencyCode { get; set; }
 
     /// <summary>Null until the posting is imported, and always for an accrual about no posting.</summary>

@@ -22,6 +22,7 @@ public class OrderFinanceAccrualDto
     public string? ExemplarId { get; init; }
     public string? Sku { get; init; }
     public decimal Amount { get; init; }
+    public decimal? PlatformDiscountAmount { get; init; }
     public string? CurrencyCode { get; init; }
     public Guid? OrderId { get; init; }
     public int? OrderNumber { get; init; }

@@ -36,6 +36,13 @@ function AccrualDescription({row}: {row: OrderFinanceAccrualDto}) {
           ? "Возврат продажи"
           : ACCRUAL_CATEGORY_LABELS[row.category]}
       </Typography>
+      {row.category === "sale" && row.platformDiscountAmount != null && (
+        <Typography variant="caption" color="text.secondary" sx={{display: "block"}}>
+          Скидка площадки: {money(row.platformDiscountAmount, row.currencyCode)}
+          {row.amount < 0 ? " · Возврат покупателю: " : " · Покупатель заплатил: "}
+          {money(Math.abs(row.amount - row.platformDiscountAmount), row.currencyCode)}
+        </Typography>
+      )}
       <Typography variant="caption" color="text.secondary" sx={{overflowWrap: "anywhere"}}>
         {row.source === "buyoutReport" ? "Отчёт о выкупе" : row.rawTypeId || "Журнал начислений"}
         {` · № ${row.externalId}`}

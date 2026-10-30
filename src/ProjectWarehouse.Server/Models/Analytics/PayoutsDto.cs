@@ -105,4 +105,5 @@ public class PayoutsCategoryDto
     public bool ByPosting { get; init; }
 
     public decimal Amount { get; init; }
+    public decimal? PlatformDiscountAmount { get; init; }
 }

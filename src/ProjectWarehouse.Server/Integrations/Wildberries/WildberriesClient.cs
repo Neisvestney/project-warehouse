@@ -802,10 +802,10 @@ public class WildberriesClient(
         var operation = NullIfEmpty(row.SellerOperName);
         var lines = new List<ExternalAccrualLine>();
 
-        void Add(MarketplaceAccrualCategory category, decimal amount)
+        void Add(MarketplaceAccrualCategory category, decimal amount, decimal? platformDiscount = null)
         {
             if (amount != 0)
-                lines.Add(new ExternalAccrualLine(category, operation, sku, amount, currency));
+                lines.Add(new ExternalAccrualLine(category, operation, sku, amount, currency, platformDiscount));
         }
 
         var sign = row.DocTypeName == "Возврат" ? -1m : 1m;
@@ -814,10 +814,12 @@ public class WildberriesClient(
         var acquiring = Money(row.AcquiringFee);
         if (retail != 0)
         {
-            Add(MarketplaceAccrualCategory.Sale, sign * retail);
+            var sellerTotal = Money(row.RetailPriceWithDisc) * row.Quantity;
+            var sale = sellerTotal > 0 ? sellerTotal : retail;
+            decimal? platformDiscount = sellerTotal > 0 ? sign * (sellerTotal - retail) : null;
+            Add(MarketplaceAccrualCategory.Sale, sign * sale, platformDiscount);
             Add(MarketplaceAccrualCategory.Acquiring, -sign * acquiring);
-            // forPay = retail - commission (vw, vwNds, ppvzReward) - acquiring
-            Add(MarketplaceAccrualCategory.Commission, -sign * (retail - forPay - acquiring));
+            Add(MarketplaceAccrualCategory.Commission, -sign * (sale - forPay - acquiring));
         }
         else if (forPay != 0)
         {

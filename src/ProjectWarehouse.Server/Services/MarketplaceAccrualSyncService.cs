@@ -326,6 +326,7 @@ public class MarketplaceAccrualSyncService(
             row.RawTypeId = line.RawTypeId;
             row.Sku = line.Sku;
             row.Amount = line.Amount;
+            row.PlatformDiscountAmount = line.PlatformDiscountAmount;
             row.CurrencyCode = line.CurrencyCode;
             row.OrderId = null;
             row.OrderMarketplaceItemId = null;
@@ -356,6 +357,7 @@ public class MarketplaceAccrualSyncService(
             && p.First.RawTypeId == p.Second.RawTypeId
             && p.First.Sku == p.Second.Sku
             && p.First.Amount == p.Second.Amount
+            && p.First.PlatformDiscountAmount == p.Second.PlatformDiscountAmount
             && p.First.CurrencyCode == p.Second.CurrencyCode);
 
     /// <summary>

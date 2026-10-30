@@ -4,6 +4,8 @@ import {formatMoney, formatPercent} from "@/components/analytics/analyticsFormat
 import {type CategoryLine, categoryColor, summarizeCategories} from "./payoutsCategories";
 
 const UNKNOWN_HINT = "Типы начислений, которые провайдер не умеет разложить по статьям";
+const PLATFORM_DISCOUNT_HINT =
+  "Скидки за счёт площадки по начислениям с данными о скидке, за вычетом возвратов. Процент — от продаж за период. Учтены в расчётах площадки, отдельно из выплаты не вычитаются и в итоги статей не входят.";
 
 function Line({
   label,
@@ -83,7 +85,22 @@ function Group({
               <Box sx={{cursor: "help"}}>{row}</Box>
             </Tooltip>
           ) : (
-            <Box key={line.key}>{row}</Box>
+            <Box key={line.key}>
+              {row}
+              {line.category === "sale" && line.platformDiscountAmount != null && (
+                <Tooltip title={PLATFORM_DISCOUNT_HINT}>
+                  <Box sx={{pl: 1, cursor: "help"}}>
+                    <Line
+                      label="Скидки за счёт площадки"
+                      amount={line.platformDiscountAmount}
+                      share={sales > 0 ? line.platformDiscountAmount / sales : null}
+                      currencyCode={currencyCode}
+                      color="text.secondary"
+                    />
+                  </Box>
+                </Tooltip>
+              )}
+            </Box>
           );
         })
       )}

@@ -2486,6 +2486,7 @@ export type OrderFinanceAccrualDto = {
   exemplarId?: null | string;
   sku?: null | string;
   amount: number;
+  platformDiscountAmount?: null | number;
   currencyCode?: null | string;
   orderId?: null | string;
   orderNumber?: null | number;
@@ -2914,6 +2915,7 @@ export type PayoutsCategoryDto = {
    */
   byPosting: boolean;
   amount: number;
+  platformDiscountAmount?: null | number;
 };
 
 export type PayoutsCurrencySeriesDto = {

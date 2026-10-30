@@ -942,6 +942,10 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("OrderMarketplaceItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("PlatformDiscountAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<string>("RawTypeId")
                         .HasColumnType("text");
 

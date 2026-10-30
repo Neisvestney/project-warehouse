@@ -27,6 +27,7 @@ export interface CategoryLine {
   category: MarketplaceAccrualCategory;
   source: MarketplaceAccrualSource;
   amount: number;
+  platformDiscountAmount: number | null;
   /** Of the sales; null without sales. */
   share: number | null;
 }
@@ -53,7 +54,9 @@ function lines(
     ORDER.indexOf(c.category) * 2 + (c.source === "accrualJournal" ? 0 : 1);
 
   return categories
-    .filter((c) => c.byPosting === byPosting && c.amount !== 0)
+    .filter(
+      (c) => c.byPosting === byPosting && (c.amount !== 0 || c.platformDiscountAmount != null),
+    )
     .sort((a, b) => rank(a) - rank(b))
     .map((c) => ({
       key: `${c.category}-${c.source}`,
@@ -61,6 +64,7 @@ function lines(
       category: c.category,
       source: c.source,
       amount: c.amount,
+      platformDiscountAmount: c.platformDiscountAmount ?? null,
       share: sales > 0 ? c.amount / sales : null,
     }));
 }

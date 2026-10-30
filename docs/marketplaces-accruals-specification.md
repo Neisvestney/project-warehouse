@@ -105,6 +105,7 @@ MarketplaceAccrual : IHasIdentity
 ├── ExemplarId            — string?, id единицы товара (WB shkId) = ExemplarId её возврата
 ├── Sku                   — string?
 ├── Amount                — decimal(18,2), со знаком
+├── PlatformDiscountAmount — decimal(18,2)?, скидка площадки в строке Sale, информационно
 ├── CurrencyCode          — string?
 ├── OrderId               — Guid? → Order (SetNull)
 ├── OrderMarketplaceItemId — Guid? → OrderMarketplaceItem (SetNull)
@@ -119,6 +120,11 @@ MarketplaceAccrual : IHasIdentity
 каждая услуга доставки по каждому товару. Поэтому Σ `Amount` по заказу — нетто, которое продавец получил за него.
 Знак — со стороны продавца: продажа положительна, комиссия и услуги отрицательны; сторно продажи при возврате
 приходит продажей с минусом и комиссией с плюсом.
+
+`PlatformDiscountAmount` — сумма скидки за счёт площадки за всю строку `Sale`, в валюте начисления.
+У продажи она положительна, у возврата отрицательна; `null` — нет данных, `0` — скидки нет.
+Поле не является движением денег и не участвует в Σ `Amount`; сумма реализации после скидки площадки —
+`Sale.Amount − PlatformDiscountAmount`. Остальные категории это поле не заполняют.
 
 **Начисление переписывается целиком.** Строки одного `ExternalId` сравниваются с ответом по всем полям; не
 изменившееся начисление не трогается, изменившееся переписывается строка в строку по `LineNo`, лишние строки
@@ -433,9 +439,9 @@ netting задним числом, когда услуга проходит в �
 
 | Колонка | Категория | Сумма |
 |---|---|---|
-| `retailAmount` | `Sale` | ± `retailAmount` |
+| `retailPriceWithDisc × quantity` (при ненулевом `retailAmount`) | `Sale` | ± цена продавца за всю строку |
 | `acquiringFee` (при ненулевом `retailAmount`) | `Acquiring` | ∓ `acquiringFee` |
-| `retailAmount − forPay − acquiringFee` (при ненулевом `retailAmount`) | `Commission` | ∓ разность: `forPay` — выручка за вычетом комиссии и эквайринга |
+| `retailPriceWithDisc × quantity − forPay − acquiringFee` (при ненулевом `retailAmount`) | `Commission` | ∓ разность: `forPay` — выручка за вычетом комиссии и эквайринга |
 | `forPay` (при нулевом `retailAmount`) | `Other` | ± `forPay` |
 | `deliveryService` | `Logistics`; `ReturnLogistics`, если `bonusTypeName` не пуст и не начинается с «К клиенту» | − |
 | `rebillLogisticCost` | `Logistics` | − |
@@ -447,6 +453,12 @@ netting задним числом, когда услуга проходит в �
 | `cashbackAmount` | `Bonus` | − |
 
 Нулевые суммы строк не дают, строка отчёта без единой суммы пропускается.
+
+У `Sale` скидка площадки — ± (`retailPriceWithDisc × quantity − retailAmount`), записывается в
+`PlatformDiscountAmount`. Цена продавца и комиссия используют одну базу: скидка WB не уменьшает сумму комиссии
+и не создаёт отдельного начисления компенсации. Нетто продажи, комиссии и эквайринга равно ± `forPay`.
+Если `retailPriceWithDisc × quantity` не положительна, база продажи и комиссии — `retailAmount`,
+а скидка остаётся `null`.
 
 ### Синхронизация WB
 

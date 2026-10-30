@@ -1139,6 +1139,8 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.Property(x => x.Amount).HasPrecision(18, 2);
 
+            e.Property(x => x.PlatformDiscountAmount).HasPrecision(18, 2);
+
             e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId, x.LineNo }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Date });
             e.HasIndex(x => new { x.MarketplaceAccountId, x.UnitNumber });

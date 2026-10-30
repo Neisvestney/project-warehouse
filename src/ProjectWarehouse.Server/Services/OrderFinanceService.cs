@@ -25,6 +25,7 @@ public class OrderFinanceService(ApplicationDbContext db, EntityAccessRegistry a
             ExemplarId = a.ExemplarId,
             Sku = a.Sku,
             Amount = a.Amount,
+            PlatformDiscountAmount = a.PlatformDiscountAmount,
             CurrencyCode = a.CurrencyCode,
             OrderId = a.OrderId,
             OrderNumber = a.Order != null ? a.Order.Number : null,
