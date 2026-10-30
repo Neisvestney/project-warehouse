@@ -1976,6 +1976,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RotationResponseProtected")
+                        .HasColumnType("text");
+
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(64)

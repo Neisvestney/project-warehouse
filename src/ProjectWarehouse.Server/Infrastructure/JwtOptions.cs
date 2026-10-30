@@ -19,6 +19,8 @@ public class JwtOptions
 
     public int RefreshTokenExpirationDays { get; set; } = 7;
 
+    public int RefreshTokenRecoverySeconds { get; set; } = 300;
+
     /// <summary>
     /// How long past its expiry a refresh token row is kept. These rows are the only trace a session leaves,
     /// so the window is longer than the token lifetime on purpose.

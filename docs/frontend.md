@@ -1450,6 +1450,10 @@ keeps a 25 MB file upload from being buffered twice on its way out.
 while their refresh token is good for another week. A successful refresh whose original request has no stored
 clone to replay is likewise not a session failure — the caller just sees the 401.
 
+If the server committed a rotation but its response was lost, the retained refresh token can recover the
+same pair during the server's recovery window (five minutes by default). Recovery requires an active
+replacement and an unchanged security version; it does not extend the window. See [api.md](api.md#refresh-token-lifecycle).
+
 Tokens live in `localStorage`, written only through `storeTokens()` / `clearTokens()` in
 `services/apiClient.ts` — the expiry timestamp is stored alongside the tokens so the proactive refresh above
 needs no JWT decode on every request. Call `storeTokens(tokenResponse)` after a successful login (the auth

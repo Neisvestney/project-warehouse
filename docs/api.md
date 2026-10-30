@@ -126,25 +126,44 @@ then serves from memory for the lifetime of the process. Existing tokens survive
 
 ### Refresh token lifecycle
 
-The token handed to the client is 64 bytes of CSPRNG output, base64url-encoded. What the `RefreshTokens` table
-holds is `TokenHash` — the hex-encoded SHA-256 of that string, under a unique index. At 512 bits of entropy a
-salt buys nothing, and a database dump yields no usable session. The row also carries `ExpiresAt` and
-`RevokedAt`; `IsActive = !IsRevoked && !IsExpired`.
+The token handed to the client is 64 bytes of CSPRNG output, base64url-encoded. `TokenHash` is its SHA-256,
+hex-encoded under a unique index. At 512 bits of entropy no salt is needed. The row also carries `ExpiresAt`
+and `RevokedAt`; `IsActive = !IsRevoked && !IsExpired`.
 
-Refresh sets `RevokedAt = now` on the old row and inserts a new one; the revocation and the `IsActive` test are
-one `ExecuteUpdateAsync` with the filter inlined, so two callers racing with the same token cannot both win.
-Logout sets `RevokedAt = now`, matching on `UserId` as well as the hash.
+Refresh and logout run in transactions and lock the user's row with `IEntityLockService`. Refresh reads the
+token after acquiring that lock, issues the replacement, revokes the original and stores
+`RotationResponseProtected` in one commit. A failure rolls back all those writes. Logout matches on both
+`UserId` and the hash, then follows the encrypted replacement IDs to revoke the active token in that rotation
+chain. The user lock serializes logout with refresh, so a lost rotation response or a concurrent refresh
+cannot leave a recoverable session after logout. Repeated logout is idempotent and preserves the user's
+other session chains. Recovery responses remain stored with their rows, but a revoked replacement fails
+the recovery check. Reuse invalidation increments `SecurityVersion` and revokes the user's active refresh
+tokens in the same transaction, then evicts the in-process version cache after commit.
 
-**Reuse detection.** A refresh call that matches no active row is checked against the hash regardless of
-state: if that row exists and was revoked more than `ReuseGracePeriod` (10s, not configurable) ago, the
-presented token was valid once and got used or revoked well before this request — a legitimate client does
-not replay its own refresh token that late, so this can only mean the token leaked and something else
-consumed it first. The response stays the same generic `refreshTokenInvalid` either way, but every other
-active refresh token for that `UserId` is revoked and `SecurityVersion` is bumped, ending every session the
-account holds, not just this request's. A row that is merely expired, a hash that matches no row at all, or
-one revoked within the grace period, does not trigger this — the grace period absorbs an ordinary race
-between two requests rotating the same token at once (no `navigator.locks` in the tab, or a network retry),
-where the loser seeing "already revoked" is expected, not a sign of theft.
+**Lost-response recovery.** For `Jwt:RefreshTokenRecoverySeconds` after rotation (300 seconds by default),
+presenting the original token returns the same access/refresh pair. The replacement refresh token must still
+be active, the user's `SecurityVersion` must match the issued pair, and its access token must not have
+expired. `expiresIn` is the remaining access-token lifetime, not a fresh lifetime. Recovery does not rotate
+again or extend the recovery window. A consumed or logged-out replacement cannot be recovered, and that
+rejected recovery does not revoke other sessions within the window.
+
+`RotationResponseProtected` contains the pair, replacement row ID, security version and access expiry,
+encrypted and authenticated with ASP.NET Core Data Protection under a dedicated purpose. Plaintext tokens
+are never stored or logged. Recovery survives process restarts through the persisted key ring configured
+by `Marketplaces:KeyRingPath`; a database dump without that key ring does not yield usable tokens. The
+encrypted response is retained with its token row until GC, but accepted only within the recovery window.
+
+**Reuse detection.** A revoked token outside its recovery window triggers account-wide invalidation and
+the generic `refreshTokenInvalid` response. Revocations without a recovery response have a fixed 10-second
+`ReuseGracePeriod`; a replay inside it is rejected without account-wide invalidation. An unknown hash or
+an expired token that was never revoked is rejected without invalidation. Reuse is a suspicious replay,
+not proof of theft: a response lost during a longer network outage can also leave a legitimate client
+holding a revoked token.
+
+Refresh logs distinguish issuance, rotation, recovery, rejected recovery, expiry, unknown tokens and reuse.
+They carry token row IDs, user ID, expiry, revocation time and age, replacement ID, recovery deadline and
+the number of sessions revoked where applicable. The refresh controller adds client address and user agent;
+request and trace IDs link the records. Token values, hashes and encrypted responses are not logged.
 
 Rotation leaves a dead row behind every access-token lifetime, so `RefreshTokensGcJob` (Quartz, cron
 `Jwt:RefreshTokenGcCron`) deletes rows past `ExpiresAt` by more than `Jwt:RefreshTokenRetentionDays` (30 by
@@ -181,6 +200,7 @@ switches the token off in Development too.
   "Audience": "ProjectWarehouse",
   "AccessTokenExpirationMinutes": 15,
   "RefreshTokenExpirationDays": 7,
+  "RefreshTokenRecoverySeconds": 300,
   "RefreshTokenRetentionDays": 30,
   "RefreshTokenGcCron": "0 45 3 * * ?",
   "RefreshTokenGcBatchSize": 5000,

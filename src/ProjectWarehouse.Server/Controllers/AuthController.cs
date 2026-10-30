@@ -17,7 +17,8 @@ public class AuthController(
     UserManager<ApplicationUser> userManager,
     ITokenService tokenService,
     IPermissionService permissionService,
-    SecurityVersionStore versionStore) : AppControllerBase
+    SecurityVersionStore versionStore,
+    ILogger<AuthController> logger) : AppControllerBase
 {
     // Verified against when the username is unknown, so that path spends the same single PBKDF2 the known
     // one does. Hashing per call would spend two and make the unknown case the slower of the pair — the very
@@ -66,8 +67,8 @@ public class AuthController(
 
     /// <summary>Refresh an access token using a valid refresh token.</summary>
     /// <remarks>
-    /// Anonymous. Rotation: the presented refresh token is revoked the instant it is accepted and a whole new
-    /// pair is returned — replaying it fails.
+    /// Anonymous. Rotation revokes the presented token and issues a new pair atomically. A retry within the
+    /// recovery window returns the same pair while its refresh token and security version remain valid.
     /// Returns 401 <c>refreshTokenInvalid</c> for every failure mode: token unknown, already used or revoked,
     /// past its <c>expiresAt</c>, or its user deleted. The causes are not distinguished, so
     /// <c>refreshTokenExpired</c> and <c>refreshTokenRevoked</c> are never returned here.
@@ -81,6 +82,11 @@ public class AuthController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
     {
+        using var scope = logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["ClientAddress"] = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            ["UserAgent"] = Request.Headers.UserAgent.ToString()
+        });
         try
         {
             var tokens = await tokenService.RefreshAsync(request.RefreshToken);
@@ -94,8 +100,8 @@ public class AuthController(
 
     /// <summary>Revoke the current refresh token (logout).</summary>
     /// <remarks>
-    /// Requires authentication, no permission. Revokes only the refresh token in the body, and only when it
-    /// belongs to the caller; the access token stays valid until it expires. Idempotent — an unknown,
+    /// Requires authentication, no permission. Revokes the supplied refresh token and its rotation descendants,
+    /// only for the caller. Other sessions are preserved; the access token stays valid until it expires. Idempotent — an unknown,
     /// already-revoked or someone else's token still answers 204, so logout has no error codes of its own.
     /// </remarks>
     [HttpPost("logout")]

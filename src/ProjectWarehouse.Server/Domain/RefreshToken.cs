@@ -6,11 +6,9 @@ public class RefreshToken
     public Guid UserId { get; set; }
     public ApplicationUser User { get; set; } = null!;
 
-    /// <summary>
-    /// SHA-256 of the token, hex-encoded. The token itself is 512 bits of CSPRNG output and is never stored,
-    /// so a database dump does not hand over live sessions; no salt is needed at that entropy.
-    /// </summary>
+    // SHA-256 of the 512-bit opaque token; plaintext tokens are never stored.
     public string TokenHash { get; set; } = null!;
+    public string? RotationResponseProtected { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public bool IsRevoked => RevokedAt.HasValue;

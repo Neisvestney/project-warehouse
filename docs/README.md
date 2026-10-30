@@ -137,6 +137,10 @@ that layer (the Docs Index above) before writing code.
 
 ## Local Dev Setup
 
+The server test project also has PostgreSQL integration tests for refresh rotation and lost-response recovery.
+Set `PW_TEST_POSTGRES` to a local connection string with permission to create databases to enable them;
+without it those tests are skipped. Each run creates and drops a uniquely named `pw_token_test_*` database.
+
 ### Prerequisites
 
 - .NET 10 SDK
