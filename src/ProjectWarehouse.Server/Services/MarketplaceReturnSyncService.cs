@@ -7,6 +7,7 @@ using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
+using ProjectWarehouse.Server.Integrations.Wildberries;
 
 namespace ProjectWarehouse.Server.Services;
 
@@ -43,7 +44,10 @@ public class MarketplaceReturnSyncService(
         foreach (var status in Enum.GetValues<MarketplaceReturnCompensationStatus>())
             await ImportAsync(provider, credentials, account, run, ExternalReturnQuery.ByCompensation(status), ct);
 
-        await RelinkAsync(account.Id, run, ct);
+        if (account.Type == MarketplaceType.Wildberries)
+            await ReconcileWildberriesAsync(account.Id, run, ct);
+        else
+            await RelinkAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.returns.created", run.ReturnsCreated);
         activity?.SetTag("marketplace.returns.updated", run.ReturnsUpdated);
@@ -59,7 +63,10 @@ public class MarketplaceReturnSyncService(
 
         await ImportAsync(provider, credentials, account, run,
             ExternalReturnQuery.ByPeriod(ExternalReturnDateKind.Returned, since, to), ct);
-        await RelinkAsync(account.Id, run, ct);
+        if (account.Type == MarketplaceType.Wildberries)
+            await ReconcileWildberriesAsync(account.Id, run, ct);
+        else
+            await RelinkAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.returns.created", run.ReturnsCreated);
     }
@@ -78,7 +85,8 @@ public class MarketplaceReturnSyncService(
 
             // a linked return keeps its posting, so only the unlinked ones are looked up
             bool NeedsPosting(ExternalReturn r) =>
-                r.PostingNumber.Length == 0 && r.ExemplarId is not null
+                account.Type != MarketplaceType.Wildberries
+                && r.PostingNumber.Length == 0 && r.ExemplarId is not null
                 && !(known.TryGetValue(r.ExternalId, out var existing) && existing.OrderId is not null);
 
             var postings = await ResolvePostingsAsync(account.Id,
@@ -169,6 +177,109 @@ public class MarketplaceReturnSyncService(
         }
     }
 
+    public async Task ReconcileWildberriesAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        var attempts = await db.MarketplaceReturns
+            .Where(r => r.MarketplaceAccountId == accountId
+                        && r.ExternalId.StartsWith(WildberriesReturnLinker.SellerAttemptPrefix))
+            .ToListAsync(ct);
+        if (attempts.Count == 0)
+            return;
+
+        var exemplars = attempts.Select(r => r.ExemplarId).OfType<string>().Distinct().ToList();
+        var journal = await db.MarketplaceAccruals
+            .Where(a => a.MarketplaceAccountId == accountId
+                        && a.Source == MarketplaceAccrualSource.AccrualJournal
+                        && exemplars.Contains(a.ExemplarId!)
+                        && (a.Category == MarketplaceAccrualCategory.Sale
+                            || ((a.Category == MarketplaceAccrualCategory.Logistics
+                                 || a.Category == MarketplaceAccrualCategory.ReturnLogistics)
+                                && (a.RawTypeId == "Логистика" || a.RawTypeId == "Доставка")))
+                        && a.Order!.MarketplaceOrder != null
+                        && (a.UnitNumber == a.Order.MarketplaceOrder.PostingNumber
+                            || (a.Rid != null && a.Rid == a.Order.MarketplaceOrder.Rid)))
+            .Select(a => new
+            {
+                a.ExemplarId,
+                a.Date,
+                a.OccurredAt,
+                a.Order!.MarketplaceOrder!.PostingNumber,
+            })
+            .Distinct()
+            .ToListAsync(ct);
+        var byExemplar = journal.ToLookup(a => a.ExemplarId!);
+        var labels = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId && exemplars.Contains(o.LabelBarcode!))
+            .Select(o => new { o.LabelBarcode, o.PostingNumber, o.InProcessAt })
+            .ToListAsync(ct);
+        var byLabel = labels.ToLookup(o => o.LabelBarcode!);
+        var resolved = attempts.ToDictionary(r => r.Id, r => r.ExemplarId is { } exemplar
+            ? WildberriesReturnLinker.Resolve(r.RequestedOn,
+                byExemplar.Contains(exemplar)
+                    ? byExemplar[exemplar].Select(a => new WildberriesReturnLinker.Movement(
+                        a.PostingNumber, a.Date, a.OccurredAt))
+                    : byLabel[exemplar].Where(o => o.InProcessAt != null)
+                        .Select(o => new WildberriesReturnLinker.Movement(o.PostingNumber,
+                            DateOnly.FromDateTime(o.InProcessAt!.Value), o.InProcessAt)))
+            : null);
+        var orders = await LoadOrdersAsync(accountId, resolved.Values.OfType<string>().ToHashSet(), ct);
+
+        foreach (var attempt in attempts)
+        {
+            var posting = resolved[attempt.Id];
+            var order = posting is not null ? orders.GetValueOrDefault(posting) : null;
+            var line = order is null ? null
+                : (attempt.OrderId == order.OrderId
+                    ? order.Items.FirstOrDefault(i => i.Id == attempt.OrderMarketplaceItemId)
+                    : null)
+                  ?? FindItem(order, attempt.Sku, attempt.OfferId)
+                  ?? (order.Items is [var only] ? only : null);
+            var scheme = order is null ? MarketplaceReturnScheme.Unknown : SchemeOf(order.Type);
+            if (attempt.OrderId == order?.OrderId && attempt.OrderMarketplaceItemId == line?.Id
+                && attempt.CatalogItemId == line?.CatalogItemId && attempt.PostingNumber == (posting ?? "")
+                && attempt.Scheme == scheme)
+                continue;
+
+            attempt.OrderId = order?.OrderId;
+            attempt.OrderMarketplaceItemId = line?.Id;
+            attempt.CatalogItemId = line?.CatalogItemId;
+            attempt.PostingNumber = posting ?? "";
+            attempt.Scheme = scheme;
+            run.ReturnsUpdated++;
+        }
+
+        var byRid = attempts.Where(r => r.SourceExternalId is not null)
+            .GroupBy(r => r.SourceExternalId!)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(g => g.Key, g => g.Single());
+        var rids = byRid.Keys.ToList();
+        var fees = await db.MarketplaceAccruals
+            .Where(a => a.MarketplaceAccountId == accountId && a.Rid != null && rids.Contains(a.Rid))
+            .ToListAsync(ct);
+        var updated = new HashSet<string>();
+        foreach (var fee in fees)
+        {
+            var attempt = byRid[fee.Rid!];
+            var order = orders.GetValueOrDefault(attempt.PostingNumber);
+            var line = order is null ? null
+                : (fee.OrderId == order.OrderId
+                    ? order.Items.FirstOrDefault(i => i.Id == fee.OrderMarketplaceItemId)
+                    : null)
+                  ?? order.Items.FirstOrDefault(i => fee.Sku is not null && i.Sku == fee.Sku)
+                  ?? order.Items.FirstOrDefault(i => i.Id == attempt.OrderMarketplaceItemId);
+            if (fee.OrderId == order?.OrderId && fee.OrderMarketplaceItemId == line?.Id
+                && fee.CatalogItemId == line?.CatalogItemId)
+                continue;
+
+            fee.OrderId = order?.OrderId;
+            fee.OrderMarketplaceItemId = line?.Id;
+            fee.CatalogItemId = line?.CatalogItemId;
+            updated.Add(fee.ExternalId);
+        }
+        run.AccrualsUpdated += updated.Count;
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task<Dictionary<string, OrderRow>> LoadOrdersAsync(
         Guid accountId, IReadOnlyCollection<string> postingNumbers, CancellationToken ct)
     {
@@ -180,9 +291,11 @@ public class MarketplaceReturnSyncService(
             .Select(o => new OrderRow(
                 o.PostingNumber,
                 o.OrderId,
+                o.Order.Type,
                 o.Order.MarketplaceItems
-                    .Where(i => i.MarketplaceCard != null)
-                    .Select(i => new ItemRow(i.Id, i.CatalogItemId, i.MarketplaceCard!.Sku, i.MarketplaceCard.OfferId))
+                    .Select(i => new ItemRow(i.Id, i.CatalogItemId,
+                        i.MarketplaceCard != null ? i.MarketplaceCard.Sku : null,
+                        i.MarketplaceCard != null ? i.MarketplaceCard.OfferId : ""))
                     .ToList()))
             .ToDictionaryAsync(o => o.PostingNumber, ct);
     }
@@ -230,14 +343,17 @@ public class MarketplaceReturnSyncService(
         if (target.OrderId is not null || !orders.TryGetValue(target.PostingNumber, out var order))
             return false;
 
-        var line = (target.Sku is { Length: > 0 } sku ? order.Items.FirstOrDefault(i => i.Sku == sku) : null)
-                   ?? (target.OfferId.Length > 0 ? order.Items.FirstOrDefault(i => i.OfferId == target.OfferId) : null);
+        var line = FindItem(order, target.Sku, target.OfferId);
 
         target.OrderId = order.OrderId;
         target.OrderMarketplaceItemId = line?.Id;
         target.CatalogItemId = line?.CatalogItemId;
         return true;
     }
+
+    private static ItemRow? FindItem(OrderRow order, string? sku, string offerId) =>
+        (sku is { Length: > 0 } ? order.Items.FirstOrDefault(i => i.Sku == sku) : null)
+        ?? (offerId.Length > 0 ? order.Items.FirstOrDefault(i => i.OfferId == offerId) : null);
 
     /// <summary>
     /// Overwrites every marketplace-owned field; true when any of them actually changed. A return the journal
@@ -284,6 +400,7 @@ public class MarketplaceReturnSyncService(
             || target.IsCancelled != isCancelled
             || target.StatusChangedAt != source.StatusChangedAt
             || target.ReturnedAt != source.ReturnedAt
+            || target.RequestedOn != source.RequestedOn
             || target.FinalAt != source.FinalAt
             || target.CompensationStatus != source.CompensationStatus
             || target.CompensationStatusChangedAt != source.CompensationStatusChangedAt
@@ -308,6 +425,7 @@ public class MarketplaceReturnSyncService(
         target.IsCancelled = isCancelled;
         target.StatusChangedAt = source.StatusChangedAt;
         target.ReturnedAt = source.ReturnedAt;
+        target.RequestedOn = source.RequestedOn;
         target.FinalAt = source.FinalAt;
         target.CompensationStatus = source.CompensationStatus;
         target.CompensationStatusChangedAt = source.CompensationStatusChangedAt;
@@ -318,7 +436,7 @@ public class MarketplaceReturnSyncService(
         return changed;
     }
 
-    private sealed record OrderRow(string PostingNumber, Guid OrderId, List<ItemRow> Items);
+    private sealed record OrderRow(string PostingNumber, Guid OrderId, OrderType Type, List<ItemRow> Items);
 
     private sealed record ItemRow(Guid Id, Guid? CatalogItemId, string? Sku, string OfferId);
 }

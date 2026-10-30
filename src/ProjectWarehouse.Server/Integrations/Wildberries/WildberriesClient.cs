@@ -45,9 +45,6 @@ public class WildberriesClient(
     /// <summary>How many archive months the earliest-posting probe walks back.</summary>
     private const int EarliestProbeMonths = 36;
 
-    /// <summary>How many archive months before a return's orderDt its task is looked for; up to 108 days were seen.</summary>
-    private const int ReturnTaskLookbackMonths = 6;
-
     private const double StickerWidthMm = 58;
     private const double StickerHeightMm = 40;
 
@@ -609,49 +606,35 @@ public class WildberriesClient(
             await Task.Delay(_options.PageDelayMs, ct);
         }
 
-        // each attempt to send a unit back is a row of its own; the unit keeps the latest
         var latest = rows
             .Where(r => r.ShkId > 0 || !string.IsNullOrEmpty(r.Srid))
-            .GroupBy(r => r.ShkId > 0 ? r.ShkId.ToString(CultureInfo.InvariantCulture) : r.Srid)
+            .GroupBy(ReturnAttemptId)
             .Select(g => g.MaxBy(r => (ParseDate(r.ReadyToReturnDt), ParseDay(r.OrderDt)))!)
             .ToList();
         if (latest.Count == 0)
             yield break;
 
-        // the unit's shkId is the sticker of its task, which only the archive states; orderDt dates the trip back,
-        // months after the task. Only the history import pays for that read: a background pass leaves the posting
-        // to the sync, which finds it by the stored sticker or journal row.
-        var tasksBySticker = new Dictionary<long, AssemblyTask>();
-        var days = latest.Select(r => ParseDay(r.OrderDt)).OfType<DateOnly>().ToList();
-        if (query.DateKind == ExternalReturnDateKind.Returned && days.Count > 0)
-        {
-            var (first, last) = (days.Min(), days.Max());
-            for (var month = new DateOnly(first.Year, first.Month, 1).AddMonths(-ReturnTaskLookbackMonths);
-                 month <= last; month = month.AddMonths(1))
-                await foreach (var tasks in ListArchiveAsync(month, ct))
-                    foreach (var task in tasks.Where(t => t.StickerId is not null))
-                        tasksBySticker[task.StickerId!.Value] = task;
-        }
-
         var cards = await CardIndex.LoadAsync(this, ct);
         foreach (var chunk in latest.Chunk(ReturnsPageSize))
-            yield return chunk.Select(r => MapReturn(r, tasksBySticker, cards)).ToList();
+            yield return chunk.Select(r => MapReturn(r, cards)).ToList();
     }
 
-    private static ExternalReturn MapReturn(Report row, Dictionary<long, AssemblyTask> tasksBySticker, CardIndex cards)
+    private static string ReturnAttemptId(Report row) => WildberriesReturnLinker.SellerAttemptPrefix
+        + (NullIfEmpty(row.Srid) ?? $"{row.ShkId}:{row.StickerId}:{row.OrderDt}");
+
+    private static ExternalReturn MapReturn(Report row, CardIndex cards)
     {
-        var task = tasksBySticker.GetValueOrDefault(row.ShkId);
         var card = cards.ByBarcode(row.Sku);
-        var sku = task?.ChrtId?.ToString(CultureInfo.InvariantCulture) ?? card?.ChrtId;
+        var sku = card?.ChrtId;
         var completedAt = ParseDate(row.CompletedDt);
         var readyAt = ParseDate(row.ReadyToReturnDt);
 
         return new ExternalReturn(
-            ExternalId: row.ShkId > 0 ? row.ShkId.ToString(CultureInfo.InvariantCulture) : row.Srid,
-            PostingNumber: task?.Id.ToString(CultureInfo.InvariantCulture) ?? "",
+            ExternalId: ReturnAttemptId(row),
+            PostingNumber: "",
             Sku: sku,
-            OfferId: task?.Article ?? card?.VendorCode ?? "",
-            Scheme: task is null ? MarketplaceReturnScheme.Unknown : MarketplaceReturnScheme.Fbs,
+            OfferId: card?.VendorCode ?? "",
+            Scheme: MarketplaceReturnScheme.Unknown,
             RawScheme: null,
             // the task is already counted as cancelled; a unit the journal shows sold is made a customer return there
             Kind: MarketplaceReturnKind.FullRefusal,
@@ -676,7 +659,8 @@ public class WildberriesClient(
             CompensationStatus: null,
             CompensationStatusChangedAt: null,
             SourceExternalId: NullIfEmpty(row.Srid),
-            ExemplarId: row.ShkId > 0 ? row.ShkId.ToString(CultureInfo.InvariantCulture) : null);
+            ExemplarId: row.ShkId > 0 ? row.ShkId.ToString(CultureInfo.InvariantCulture) : null,
+            RequestedOn: ParseDay(row.OrderDt));
     }
 
     public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(DateOnly from, DateOnly to,
@@ -856,15 +840,18 @@ public class WildberriesClient(
 
         var id = row.RrdId.ToString(CultureInfo.InvariantCulture);
         var exemplar = row.ShkId > 0 ? row.ShkId.ToString(CultureInfo.InvariantCulture) : null;
+        var occurredAt = row.SaleDt == default ? (DateTime?)null : row.SaleDt.UtcDateTime;
         if (row.OrderId != 0)
             return new ExternalAccrual(id, day, MarketplaceAccrualScope.Posting,
-                row.OrderId.ToString(CultureInfo.InvariantCulture), lines, ExemplarId: exemplar);
+                row.OrderId.ToString(CultureInfo.InvariantCulture), lines, ExemplarId: exemplar,
+                OccurredAt: occurredAt);
 
         // an FBS sale, its delivery and handling come with orderId 0 now and then; srid is still the task's rid
         return NullIfEmpty(row.OrderUid) is { } orderUid
             ? new ExternalAccrual(id, day, MarketplaceAccrualScope.Item, orderUid, lines, Rid: NullIfEmpty(row.Srid),
-                ExemplarId: exemplar)
-            : new ExternalAccrual(id, day, MarketplaceAccrualScope.Account, null, lines);
+                ExemplarId: exemplar, OccurredAt: occurredAt)
+            : new ExternalAccrual(id, day, MarketplaceAccrualScope.Account, null, lines,
+                OccurredAt: occurredAt);
     }
 
     public async Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct)

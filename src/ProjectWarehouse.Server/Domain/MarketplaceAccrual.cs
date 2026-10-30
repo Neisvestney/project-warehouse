@@ -23,6 +23,8 @@ public class MarketplaceAccrual : IHasIdentity
     /// <summary>The marketplace's own accounting day, not a moment in time.</summary>
     public DateOnly Date { get; set; }
 
+    public DateTime? OccurredAt { get; set; }
+
     public MarketplaceAccrualScope Scope { get; set; }
 
     public MarketplaceAccrualCategory Category { get; set; }

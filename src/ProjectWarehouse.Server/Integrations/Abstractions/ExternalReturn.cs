@@ -27,4 +27,5 @@ public record ExternalReturn(
     MarketplaceReturnCompensationStatus? CompensationStatus,
     DateTime? CompensationStatusChangedAt,
     string? SourceExternalId,
-    string? ExemplarId);
+    string? ExemplarId,
+    DateOnly? RequestedOn = null);

@@ -11,7 +11,8 @@ public record ExternalAccrual(
     IReadOnlyList<ExternalAccrualLine> Lines,
     MarketplaceAccrualSource Source = MarketplaceAccrualSource.AccrualJournal,
     string? Rid = null,
-    string? ExemplarId = null);
+    string? ExemplarId = null,
+    DateTime? OccurredAt = null);
 
 public record ExternalAccrualLine(
     MarketplaceAccrualCategory Category,

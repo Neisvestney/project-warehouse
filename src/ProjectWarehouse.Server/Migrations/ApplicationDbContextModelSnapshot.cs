@@ -933,6 +933,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("MarketplaceAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("OrderId")
                         .HasColumnType("uuid");
 
@@ -1351,6 +1354,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<int?>("ReasonCategory")
                         .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("RequestedOn")
+                        .HasColumnType("date");
 
                     b.Property<DateTime?>("ReturnedAt")
                         .HasColumnType("timestamp with time zone");

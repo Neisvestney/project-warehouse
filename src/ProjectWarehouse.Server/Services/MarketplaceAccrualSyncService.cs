@@ -15,7 +15,8 @@ namespace ProjectWarehouse.Server.Services;
 public class MarketplaceAccrualSyncService(
     ApplicationDbContext db,
     IRealtimeNotifier realtime,
-    IOptions<MarketplacesOptions> options) : IMarketplaceAccrualSyncService
+    IOptions<MarketplacesOptions> options,
+    IMarketplaceReturnSyncService returnSync) : IMarketplaceAccrualSyncService
 {
     private const int RelinkBatchSize = 500;
 
@@ -72,6 +73,8 @@ public class MarketplaceAccrualSyncService(
             await SyncBuyoutsAsync(provider, credentials, account, run, from, today.AddDays(1), now, ct);
 
         await RelinkAsync(account.Id, run, ct);
+        if (account.Type == MarketplaceType.Wildberries)
+            await returnSync.ReconcileWildberriesAsync(account.Id, run, ct);
         if (provider.Capabilities.HasFlag(MarketplaceCapabilities.ReversedSaleReturns))
             await ApplyReversedSalesAsync(account.Id, run, ct);
         await BackfillDeliveredAtAsync(account.Id, run, ct);
@@ -97,6 +100,8 @@ public class MarketplaceAccrualSyncService(
                 is { } refused)
             WarnBuyoutsRefused(run, refused);
         await RelinkAsync(account.Id, run, ct);
+        if (account.Type == MarketplaceType.Wildberries)
+            await returnSync.ReconcileWildberriesAsync(account.Id, run, ct);
         if (provider.Capabilities.HasFlag(MarketplaceCapabilities.ReversedSaleReturns))
             await ApplyReversedSalesAsync(account.Id, run, ct);
         await BackfillDeliveredAtAsync(account.Id, run, ct);
@@ -311,6 +316,7 @@ public class MarketplaceAccrualSyncService(
 
             var line = source.Lines[i];
             row.Date = source.Date;
+            row.OccurredAt = source.OccurredAt;
             row.Scope = source.Scope;
             row.Source = source.Source;
             row.UnitNumber = source.UnitNumber;
@@ -340,6 +346,7 @@ public class MarketplaceAccrualSyncService(
         rows.Count == source.Lines.Count
         && rows.Zip(source.Lines).All(p =>
             p.First.Date == source.Date
+            && p.First.OccurredAt == source.OccurredAt
             && p.First.Scope == source.Scope
             && p.First.Source == source.Source
             && p.First.UnitNumber == source.UnitNumber

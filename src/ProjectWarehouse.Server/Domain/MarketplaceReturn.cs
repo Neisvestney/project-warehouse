@@ -20,7 +20,7 @@ public class MarketplaceReturn : IHasIdentity
     /// <summary>Always stored, so a return that arrived before its posting can be linked later.</summary>
     public string PostingNumber { get; set; } = null!;
 
-    /// <summary>Null until the posting is imported. Once set it is never reconsidered.</summary>
+    /// <summary>WB seller attempts follow the unit's movement history; other return links stay fixed.</summary>
     public Guid? OrderId { get; set; }
     public Order? Order { get; set; }
 
@@ -86,6 +86,8 @@ public class MarketplaceReturn : IHasIdentity
 
     /// <summary>When the buyer handed the item back or refused it.</summary>
     public DateTime? ReturnedAt { get; set; }
+
+    public DateOnly? RequestedOn { get; set; }
 
     /// <summary>When the item reached the marketplace warehouse or was handed to the seller.</summary>
     public DateTime? FinalAt { get; set; }

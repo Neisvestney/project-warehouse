@@ -10,6 +10,8 @@ namespace ProjectWarehouse.Server.Services;
 /// </summary>
 public interface IMarketplaceReturnSyncService
 {
+    Task ReconcileWildberriesAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct);
+
     /// <summary>
     /// Reads status changes since <see cref="MarketplaceAccount.ReturnsSyncedAt"/>, then every return that
     /// ever had a compensation, then retries linking returns whose posting was not imported yet.
