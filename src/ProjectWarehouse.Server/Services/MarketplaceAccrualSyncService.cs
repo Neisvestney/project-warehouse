@@ -638,20 +638,35 @@ public class MarketplaceAccrualSyncService(
     /// </summary>
     private async Task RelinkAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct)
     {
-        var pending = await db.MarketplaceAccruals
+        var unlinked = db.MarketplaceAccruals
             .Where(a => a.MarketplaceAccountId == accountId
                         && a.OrderId == null
-                        && (a.UnitNumber != null || a.Rid != null)
-                        && LinkableScopes.Contains(a.Scope)
-                        && (db.MarketplaceOrders.Any(o => o.MarketplaceAccountId == accountId
-                                                          && (o.PostingNumber == a.UnitNumber
-                                                              || (a.Rid != null && o.Rid == a.Rid)
-                                                              || (OrderNumberScopes.Contains(a.Scope)
-                                                                  && o.ExternalOrderNumber == a.UnitNumber)))
-                            || (a.Rid != null
-                                && db.MarketplaceReturns.Any(r => r.MarketplaceAccountId == accountId
-                                                                  && r.SourceExternalId == a.Rid
-                                                                  && r.OrderId != null))))
+                        && LinkableScopes.Contains(a.Scope));
+        var accountOrders = db.MarketplaceOrders.Where(o => o.MarketplaceAccountId == accountId);
+
+        // One semi-join per key: OR-ing them inside a correlated EXISTS makes Postgres rescan orders per accrual.
+        var ids = unlinked
+            .Where(a => a.UnitNumber != null && accountOrders.Any(o => o.PostingNumber == a.UnitNumber))
+            .Select(a => a.Id)
+            .Union(unlinked
+                .Where(a => a.UnitNumber != null
+                            && OrderNumberScopes.Contains(a.Scope)
+                            && accountOrders.Any(o => o.ExternalOrderNumber != null
+                                               && o.ExternalOrderNumber == a.UnitNumber))
+                .Select(a => a.Id))
+            .Union(unlinked
+                .Where(a => a.Rid != null && accountOrders.Any(o => o.Rid != null && o.Rid == a.Rid))
+                .Select(a => a.Id))
+            .Union(unlinked
+                .Where(a => a.Rid != null
+                            && db.MarketplaceReturns.Any(r => r.MarketplaceAccountId == accountId
+                                                              && r.SourceExternalId != null
+                                                              && r.SourceExternalId == a.Rid
+                                                              && r.OrderId != null))
+                .Select(a => a.Id));
+
+        var pending = await db.MarketplaceAccruals
+            .Where(a => ids.Contains(a.Id))
             .ToListAsync(ct);
 
         foreach (var batch in pending.Chunk(RelinkBatchSize))
