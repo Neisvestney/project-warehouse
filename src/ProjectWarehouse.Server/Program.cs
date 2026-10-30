@@ -774,6 +774,7 @@ try
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
+    builder.Services.AddScoped<IOrderFinanceService, OrderFinanceService>();
     builder.Services.AddScoped<IAssemblyCheckService, AssemblyCheckService>();
     builder.Services.AddScoped<IAssemblyPickHintService, AssemblyPickHintService>();
     builder.Services.AddScoped<IReceiptService, ReceiptService>();

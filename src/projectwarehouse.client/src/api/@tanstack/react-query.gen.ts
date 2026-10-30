@@ -77,6 +77,7 @@ import {
   marketplacesTestConnection,
   marketplacesUpdateAccount,
   type Options,
+  orderFinanceGet,
   ordersAddBox,
   ordersAddComponent,
   ordersAddFulfillment,
@@ -438,6 +439,9 @@ import type {
   MarketplacesUpdateAccountData,
   MarketplacesUpdateAccountError,
   MarketplacesUpdateAccountResponse,
+  OrderFinanceGetData,
+  OrderFinanceGetError,
+  OrderFinanceGetResponse,
   OrdersAddBoxData,
   OrdersAddBoxError,
   OrdersAddBoxResponse,
@@ -1591,8 +1595,8 @@ export const authLoginMutation = (
 /**
  * Refresh an access token using a valid refresh token.
  *
- * Anonymous. Rotation: the presented refresh token is revoked the instant it is accepted and a whole new
- * pair is returned — replaying it fails.
+ * Anonymous. Rotation revokes the presented token and issues a new pair atomically. A retry within the
+ * recovery window returns the same pair while its refresh token and security version remain valid.
  * Returns 401 `refreshTokenInvalid` for every failure mode: token unknown, already used or revoked,
  * past its `expiresAt`, or its user deleted. The causes are not distinguished, so
  * `refreshTokenExpired` and `refreshTokenRevoked` are never returned here.
@@ -1624,8 +1628,8 @@ export const authRefreshMutation = (
 /**
  * Revoke the current refresh token (logout).
  *
- * Requires authentication, no permission. Revokes only the refresh token in the body, and only when it
- * belongs to the caller; the access token stays valid until it expires. Idempotent — an unknown,
+ * Requires authentication, no permission. Revokes the supplied refresh token and its rotation descendants,
+ * only for the caller. Other sessions are preserved; the access token stays valid until it expires. Idempotent — an unknown,
  * already-revoked or someone else's token still answers 204, so logout has no error codes of its own.
  */
 export const authLogoutMutation = (
@@ -3730,6 +3734,38 @@ export const marketplacesGetUnmappedCountOptions = (
       return data;
     },
     queryKey: marketplacesGetUnmappedCountQueryKey(options),
+  });
+
+export const orderFinanceGetQueryKey = (options: Options<OrderFinanceGetData>) =>
+  createQueryKey("orderFinanceGet", options);
+
+/**
+ * Order accrual journal and Wildberries exemplar history.
+ *
+ * Requires analytics.view and orders.view or orders.view_assigned, with access to this order.
+ * Accruals include fees without a matched item. Exemplar history is limited to the same account,
+ * includes unlinked journal rows and returns, and excludes inaccessible related orders and their rows.
+ * HasRestrictedHistory indicates that the returned exemplar history omits inaccessible records.
+ * Dates and nullable event times are returned as stored; currencies are never combined.
+ * Returns 404 orderNotFound when the order does not exist.
+ */
+export const orderFinanceGetOptions = (options: Options<OrderFinanceGetData>) =>
+  queryOptions<
+    OrderFinanceGetResponse,
+    OrderFinanceGetError,
+    OrderFinanceGetResponse,
+    ReturnType<typeof orderFinanceGetQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await orderFinanceGet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: orderFinanceGetQueryKey(options),
   });
 
 export const ordersGetTagsQueryKey = (options?: Options<OrdersGetTagsData>) =>

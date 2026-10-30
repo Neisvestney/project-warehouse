@@ -5,25 +5,7 @@ import type {
   PayoutsMoneyDto,
 } from "@/api/types.gen";
 import {formatMoney} from "@/components/analytics/analyticsFormat";
-
-/** Display order: what comes in first, then what the marketplace keeps, the unmapped last. */
-export const CATEGORY_LABELS: Record<MarketplaceAccrualCategory, string> = {
-  sale: "Продажи",
-  deliveryCharge: "Доставка от покупателя",
-  compensation: "Компенсации",
-  commission: "Комиссия",
-  acquiring: "Эквайринг",
-  logistics: "Логистика",
-  returnLogistics: "Обратная логистика",
-  processing: "Обработка",
-  storage: "Хранение",
-  advertising: "Реклама",
-  services: "Доп. услуги",
-  bonus: "Баллы и кэшбэк",
-  penalty: "Штрафы",
-  other: "Прочее",
-  unknown: "Не распознано",
-};
+import {ACCRUAL_CATEGORY_LABELS as CATEGORY_LABELS} from "@/features/marketplace/accrualCategories";
 
 const ORDER = Object.keys(CATEGORY_LABELS) as MarketplaceAccrualCategory[];
 const INCOME: MarketplaceAccrualCategory[] = ["sale", "deliveryCharge", "compensation"];

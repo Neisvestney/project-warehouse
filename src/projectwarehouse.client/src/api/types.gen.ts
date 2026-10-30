@@ -2440,6 +2440,65 @@ export type OrderDetailsDto = {
   extendedSearchString?: null | string;
 };
 
+export type OrderExemplarHistoryDto = {
+  exemplarId: string;
+  hasRestrictedHistory: boolean;
+  accruals: Array<OrderFinanceAccrualDto>;
+  orders: Array<OrderExemplarOrderDto>;
+  returns: Array<OrderExemplarReturnDto>;
+};
+
+export type OrderExemplarOrderDto = {
+  id: string;
+  number: number;
+  postingNumber: string;
+  type: OrderType;
+  status: MarketplaceOrderStatus;
+  inProcessAt?: null | string;
+  deliveringAt?: null | string;
+  deliveredAt?: null | string;
+  cancelledAt?: null | string;
+  isReconstructed: boolean;
+};
+
+export type OrderExemplarReturnDto = {
+  id: string;
+  orderId?: null | string;
+  kind: MarketplaceReturnKind;
+  requestedOn?: null | string;
+  returnedAt?: null | string;
+  finalAt?: null | string;
+  saleReversedOn?: null | string;
+  statusName?: null | string;
+  reason?: null | string;
+  isCancelled: boolean;
+};
+
+export type OrderFinanceAccrualDto = {
+  id: string;
+  externalId: string;
+  date: string;
+  occurredAt?: null | string;
+  category: MarketplaceAccrualCategory;
+  source: MarketplaceAccrualSource;
+  rawTypeId?: null | string;
+  unitNumber?: null | string;
+  rid?: null | string;
+  exemplarId?: null | string;
+  sku?: null | string;
+  amount: number;
+  currencyCode?: null | string;
+  orderId?: null | string;
+  orderNumber?: null | number;
+  postingNumber?: null | string;
+  itemName?: null | string;
+};
+
+export type OrderFinanceDto = {
+  accruals: Array<OrderFinanceAccrualDto>;
+  exemplars: Array<OrderExemplarHistoryDto>;
+};
+
 /**
  * How the merged label stack is ordered.
  */
@@ -7439,6 +7498,37 @@ export type MarketplacesGetUnmappedCountResponses = {
 
 export type MarketplacesGetUnmappedCountResponse =
   MarketplacesGetUnmappedCountResponses[keyof MarketplacesGetUnmappedCountResponses];
+
+export type OrderFinanceGetData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/finance";
+};
+
+export type OrderFinanceGetErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrderFinanceGetError = OrderFinanceGetErrors[keyof OrderFinanceGetErrors];
+
+export type OrderFinanceGetResponses = {
+  /**
+   * OK
+   */
+  200: OrderFinanceDto;
+};
+
+export type OrderFinanceGetResponse = OrderFinanceGetResponses[keyof OrderFinanceGetResponses];
 
 export type OrdersGetTagsData = {
   body?: never;

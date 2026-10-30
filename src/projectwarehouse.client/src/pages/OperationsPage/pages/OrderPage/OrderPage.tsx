@@ -50,6 +50,9 @@ import BlockIcon from "@mui/icons-material/Block";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LinkIcon from "@mui/icons-material/Link";
 import OrderMarketplaceItemsSection from "@/pages/OperationsPage/pages/OrderPage/OrderMarketplaceItemsSection.tsx";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
+import OrderFinanceDialog from "./OrderFinanceDialog";
 
 function OrderPage() {
   const {id} = useParams<{id: string}>();
@@ -57,6 +60,8 @@ function OrderPage() {
   const queryClient = useQueryClient();
 
   const canSelfAssign = useHasPermission("orders.self_assign");
+  const canViewFinance = useHasPermission("analytics.view");
+  const [financeId, openFinance, closeFinance] = useDrawerSearchParamsState("finance");
   const hasAssemblePermission = useHasPermission([
     "orders.assemble_assigned",
     "orders.edit",
@@ -462,9 +467,20 @@ function OrderPage() {
 
           {order.marketplaceItems.length > 0 && (
             <Paper sx={{p: {xs: 1.5, md: 3}}}>
-              <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
-                Состав заказа на маркетплейсе
-              </Typography>
+              <Stack
+                direction={{xs: "column", sm: "row"}}
+                spacing={1}
+                sx={{justifyContent: "space-between", alignItems: {sm: "center"}, mb: 2}}
+              >
+                <Typography variant="subtitle1" sx={{fontWeight: 600}}>
+                  Состав заказа на маркетплейсе
+                </Typography>
+                {canViewFinance && order.marketplaceOrder && (
+                  <Button startIcon={<PaymentsIcon />} onClick={() => openFinance(order.id)}>
+                    Финансы и история
+                  </Button>
+                )}
+              </Stack>
               <OrderMarketplaceItemsSection order={order} />
             </Paper>
           )}
@@ -484,6 +500,14 @@ function OrderPage() {
                 canTransitionStatus={canAssemble}
               />
             </Paper>
+          )}
+
+          {canViewFinance && order.marketplaceOrder && (
+            <OrderFinanceDialog
+              order={order}
+              open={financeId === order.id}
+              onClose={closeFinance}
+            />
           )}
 
           <ConfirmDialog

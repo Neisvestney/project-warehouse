@@ -1356,6 +1356,15 @@ The order page also shows returns per line and per record: `OrderMarketplaceItem
 button expands every return record of the posting. Records with `isCountedAsReturn = false` stay in that list,
 dimmed and marked «Не засчитан».
 
+`OrderFinanceDialog` opens from «Финансы и история» beside the marketplace composition title on `OrderPage`.
+The button and dialog require `analytics.view`. Its open state lives in the `finance` search parameter;
+Back closes it, and `useRetainedValue` preserves the body through the exit transition. The money tab shows
+order prices and `FinanceAccrualsSection`: signed journal rows, totals separated by currency, and links to
+orders. The WB-only `OrderExemplarHistory` tab selects an exemplar and groups its known events by Moscow day,
+with the current order highlighted and a separate total for the exemplar. On phones the dialog is fullscreen
+and journal rows render as cards. Accrual category labels live in `features/marketplace/accrualCategories.ts`
+and are shared with payout analytics.
+
 `SyncOrdersDialog` picks accounts with `MarketplaceAccountPicker` and puts a warning icon at the end of a row
 through `renderExtra` when the run will skip something for that account.
 
