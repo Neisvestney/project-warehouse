@@ -5,6 +5,8 @@ import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
 import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles";
 import ChartFullscreenDialog from "@/components/analytics/charts/ChartFullscreenDialog";
 import type {useChartFullscreen} from "./useChartFullscreen";
+import ShareToggle from "../ShareToggle";
+import {formatCount, formatShare, shareSeries} from "@/components/analytics/charts/chartSeries";
 
 interface ReturnsFullscreenProps {
   state: ReturnType<typeof useChartFullscreen>;
@@ -23,6 +25,7 @@ function ReturnsFullscreen({state, moneyMode, catalogItemIds}: ReturnsFullscreen
         ...channelSelectionQuery(state.channels),
         CatalogItemIds: catalogItemIds,
         Step: state.step ?? undefined,
+        DeliveredOnly: state.share,
       },
     }),
     enabled: open,
@@ -34,10 +37,25 @@ function ReturnsFullscreen({state, moneyMode, catalogItemIds}: ReturnsFullscreen
     <ChartFullscreenDialog
       open={open}
       state={state}
-      title="Возвраты по дате возврата, шт."
-      toggles={<StepMeasureToggles step={data?.step ?? state.step} onStepChange={state.setStep} />}
+      title={
+        state.share
+          ? "Доля возвратов от выданных товаров по дате заказа"
+          : "Возвраты по дате возврата, шт."
+      }
+      toggles={
+        <>
+          <StepMeasureToggles step={data?.step ?? state.step} onStepChange={state.setStep} />
+          <ShareToggle share={state.share} onChange={state.setShare} countLabel="Штуки" />
+        </>
+      }
       withDirect={false}
-      data={data}
+      format={state.share ? formatShare : formatCount}
+      data={
+        data && {
+          ...data,
+          series: state.share ? shareSeries(data.series, data.soldSeries) : data.series,
+        }
+      }
       isFetching={isFetching}
       error={error}
     />

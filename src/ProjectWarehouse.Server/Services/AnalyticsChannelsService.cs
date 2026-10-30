@@ -232,12 +232,22 @@ public class AnalyticsChannelsService(
 
         var offset = period.OffsetMinutes;
         var cohort = queries.CohortReturns(accountIds, period.FromUtc, period.ToUtc, itemIds);
+        if (request.DeliveredOnly)
+            cohort = cohort.Where(r => r.Order!.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered);
 
-        var soldUnits = await queries
-            .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
-            .GroupBy(i => i.Order.MarketplaceOrder!.MarketplaceAccountId)
-            .Select(g => new { AccountId = g.Key, Units = g.Sum(i => i.Quantity) })
-            .ToDictionaryAsync(r => r.AccountId, r => r.Units, ct);
+        var soldDays = await queries
+            .MarketplaceLines(accountIds,
+                request.DeliveredOnly ? [MarketplaceOrderStatus.Delivered] : AnalyticsQueries.MarketplaceSaleStatuses,
+                period.FromUtc, period.ToUtc, itemIds)
+            .GroupBy(i => new
+            {
+                AccountId = i.Order.MarketplaceOrder!.MarketplaceAccountId,
+                Day = i.Order.EffectiveDate.AddMinutes(offset).Date,
+            })
+            .Select(g => new DayValue { AccountId = g.Key.AccountId, Day = g.Key.Day, Value = g.Sum(i => i.Quantity) })
+            .ToListAsync(ct);
+        var soldUnits = soldDays.GroupBy(d => d.AccountId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.Value));
 
         // One pass over the cohort; kinds, money, reasons and compensations are folded from these groups
         var cohortGroups = await cohort
@@ -292,12 +302,14 @@ public class AnalyticsChannelsService(
             .OrderBy(c => c.Status)
             .ToList();
 
-        var days = await queries
-            .ReturnsByReturnDate(accountIds, period.FromUtc, period.ToUtc, itemIds)
+        var volume = request.DeliveredOnly
+            ? cohort
+            : queries.ReturnsByReturnDate(accountIds, period.FromUtc, period.ToUtc, itemIds);
+        var days = await volume
             .GroupBy(r => new
             {
                 AccountId = r.Order!.MarketplaceOrder!.MarketplaceAccountId,
-                Day = r.ReturnedAt!.Value.AddMinutes(offset).Date,
+                Day = (request.DeliveredOnly ? r.Order!.EffectiveDate : r.ReturnedAt!.Value).AddMinutes(offset).Date,
             })
             .Select(g => new DayValue { AccountId = g.Key.AccountId, Day = g.Key.Day, Value = g.Sum(r => r.Quantity) })
             .ToListAsync(ct);
@@ -344,6 +356,10 @@ public class AnalyticsChannelsService(
                 .ToList(),
             TopReasons = topReasons,
             Compensations = compensations,
+            SoldSeries = accounts
+                .Select(a => Series(AnalyticsChannelKind.Marketplace, a, intervals, period.Today,
+                    soldDays.Where(d => d.AccountId == a.Id)))
+                .ToList(),
         };
     }
 

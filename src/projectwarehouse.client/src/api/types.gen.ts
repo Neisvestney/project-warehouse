@@ -1069,9 +1069,7 @@ export type ChannelsLossReasonsDto = {
 };
 
 /**
- * Everything but List&lt;ChannelSeriesDto&gt; ChannelsReturnsDto.Series is tied to the sales of the period (the order date), so the share does
- * not depend on when the buyer brought the item back. List&lt;ChannelSeriesDto&gt; ChannelsReturnsDto.Series is tied to the return date instead:
- * how much came back in each interval.
+ * Return cohorts; DeliveredOnly uses delivered sales and order dates for both series.
  */
 export type ChannelsReturnsDto = {
   from: string;
@@ -1084,9 +1082,10 @@ export type ChannelsReturnsDto = {
   step: AnalyticsStep;
   intervals: Array<AnalyticsIntervalDto>;
   /**
-   * Returned units by return date, one per shop.
+   * Returned units by return date, or by order date when DeliveredOnly is set.
    */
   series: Array<ChannelSeriesDto>;
+  soldSeries: Array<ChannelSeriesDto>;
   topReasons: Array<ReturnReasonUnitsDto>;
   compensations: Array<CompensationCountDto>;
 };
@@ -5115,6 +5114,7 @@ export type AnalyticsGetChannelsReturnsData = {
      * Step of the volume-by-return-date series; null picks one by the period length.
      */
     Step?: AnalyticsStep;
+    DeliveredOnly?: boolean;
     CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;

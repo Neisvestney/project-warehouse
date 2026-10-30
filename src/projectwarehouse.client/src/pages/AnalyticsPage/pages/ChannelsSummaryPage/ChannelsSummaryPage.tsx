@@ -140,12 +140,13 @@ function ChannelsSummaryPage() {
           />
           <ReturnsCard
             filters={filters}
-            onExpand={(selection, step) =>
+            onExpand={(selection, step, share) =>
               fullscreen.openWith("returns", {
                 // Only shops have returns; «Прямые» alone leaves an empty pick, which reads as every shop
                 channels: filters.channels.filter((c) => c !== DIRECT_CHANNEL),
                 selection,
                 step,
+                share,
               })
             }
           />

@@ -23,24 +23,38 @@ import type {PeriodSelection} from "@/components/analytics/period/periodSelectio
 import {CARD_PERIOD_PRESETS, useCardPeriod} from "@/components/analytics/period/usePeriodParam";
 import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
+import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+import {formatCount, formatShare, shareSeries} from "@/components/analytics/charts/chartSeries";
+import ShareToggle from "../ShareToggle";
 
 interface ReturnsCardProps {
   filters: ReturnType<typeof useChannelsSummaryFilters>;
   /** Called with the period and step the card shows, for the fullscreen chart to open with. */
-  onExpand: (selection: PeriodSelection, step: AnalyticsStep | null) => void;
+  onExpand: (selection: PeriodSelection, step: AnalyticsStep | null, share: boolean) => void;
 }
 
 function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
   const theme = useTheme();
   const pagePeriod = {from: filters.from, to: filters.to};
   const {selection, setSelection, period} = useCardPeriod("returnperiod", pagePeriod);
+  const [share, setShare] = useSyncedWithQueryState(
+    "returnshare",
+    (q) => q === "1",
+    (v) => (v ? "1" : null),
+  );
   const followsPage = selection.preset === "page";
   // The page step is picked for the page period; another period gets the server's own pick
   const step = followsPage ? filters.step : null;
 
   const {data, error, isError, isFetching} = useQuery({
     ...analyticsGetChannelsReturnsOptions({
-      query: {...filters.query, From: period.from, To: period.to, Step: step ?? undefined},
+      query: {
+        ...filters.query,
+        From: period.from,
+        To: period.to,
+        Step: step ?? undefined,
+        DeliveredOnly: share,
+      },
     }),
     placeholderData: keepPreviousData,
     meta: {suppressGlobalError: true},
@@ -74,6 +88,7 @@ function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
       isFetching={isFetching}
       actions={
         <>
+          <ShareToggle share={share} onChange={setShare} countLabel="Штуки" />
           <PeriodPicker
             variant="compact"
             presets={CARD_PERIOD_PRESETS}
@@ -82,7 +97,9 @@ function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
             pagePeriod={pagePeriod}
           />
           <Tooltip title="Развернуть на всю вкладку">
-            <IconButton onClick={() => onExpand(followsPage ? filters.selection : selection, step)}>
+            <IconButton
+              onClick={() => onExpand(followsPage ? filters.selection : selection, step, share)}
+            >
               <OpenInFullIcon />
             </IconButton>
           </Tooltip>
@@ -117,14 +134,26 @@ function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
             {returned > 0 ? (
               <StackedAccountsBar
                 parts={parts}
+                share={share}
                 rows={data.accounts.map((a) => ({
                   id: a.marketplaceAccountId,
                   label: shopLabel(a.name, a.marketplaceType),
-                  values: Object.fromEntries(a.byKind.map((k) => [k.kind, k.units])),
+                  values: Object.fromEntries(
+                    a.byKind.map((k) => [
+                      k.kind,
+                      share ? (a.soldUnits > 0 ? k.units / a.soldUnits : null) : k.units,
+                    ]),
+                  ),
                 }))}
               />
             ) : (
               <Typography color="text.secondary">Возвратов по продажам периода нет</Typography>
+            )}
+
+            {share && (
+              <Typography variant="body2" color="text.secondary">
+                Доля от выданных товаров каждого магазина; только заказы со статусом «Доставлен».
+              </Typography>
             )}
 
             {moneyByCurrency.size > 0 && (
@@ -138,19 +167,23 @@ function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
 
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{mb: 0.5}}>
-                Объём по дате возврата
+                {share ? "Доля возвратов по дате заказа" : "Объём по дате возврата"}
               </Typography>
               <ChannelsLineChart
                 intervals={data.intervals}
-                series={data.series}
+                series={share ? shareSeries(data.series, data.soldSeries) : data.series}
                 step={data.step}
                 height={200}
+                format={share ? formatShare : formatCount}
               />
             </Box>
 
             <CountsTable
               label="Причина"
-              valueLabel="Штук"
+              valueLabel={share ? "% выданных товаров" : "Штук"}
+              format={
+                share ? (count) => formatPercent(sold > 0 ? count / sold : null) : formatNumber
+              }
               rows={data.topReasons.map((r) => ({key: formatLossReason(r.reason), count: r.units}))}
             />
 

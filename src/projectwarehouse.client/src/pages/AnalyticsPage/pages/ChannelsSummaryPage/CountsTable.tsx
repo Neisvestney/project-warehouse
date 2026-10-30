@@ -5,10 +5,11 @@ interface CountsTableProps {
   label: string;
   valueLabel: string;
   rows: {key: string; count: number}[];
+  format?: (value: number) => string;
 }
 
 /** A short «name — count» table for the top reasons under a card's chart. */
-function CountsTable({label, valueLabel, rows}: CountsTableProps) {
+function CountsTable({label, valueLabel, rows, format = formatNumber}: CountsTableProps) {
   if (rows.length === 0) return null;
 
   return (
@@ -23,7 +24,7 @@ function CountsTable({label, valueLabel, rows}: CountsTableProps) {
         {rows.map((row) => (
           <TableRow key={row.key}>
             <TableCell sx={{wordBreak: "break-word"}}>{row.key}</TableCell>
-            <TableCell align="right">{formatNumber(row.count)}</TableCell>
+            <TableCell align="right">{format(row.count)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

@@ -81,7 +81,16 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
     return {
       id: shop.marketplaceAccountId!,
       label: shopLabel(shop.name, shop.marketplaceType),
-      values: Object.fromEntries((entry?.byType ?? []).map((t) => [t.type, t.count])),
+      values: Object.fromEntries(
+        (entry?.byType ?? []).map((t) => [
+          t.type,
+          share
+            ? shop.orders + shop.cancellations > 0
+              ? t.count / (shop.orders + shop.cancellations)
+              : null
+            : t.count,
+        ]),
+      ),
     };
   });
 
@@ -99,6 +108,7 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
       }
       actions={
         <>
+          <ShareToggle share={share} onChange={setShare} countLabel="Заказы" />
           <PeriodPicker
             variant="compact"
             presets={CARD_PERIOD_PRESETS}
@@ -126,12 +136,16 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
         ) : (
           <Stack spacing={1.5}>
             {total > 0 ? (
-              <StackedAccountsBar rows={rows} parts={parts} />
+              <StackedAccountsBar rows={rows} parts={parts} share={share} />
             ) : (
               <Typography color="text.secondary">Отмен за период нет</Typography>
             )}
             <Typography variant="body2" color="text.secondary">
-              После сборки: {formatNumber(afterAssembly)}
+              {share && "Доля от продаж и отмен каждого магазина. "}
+              После сборки:{" "}
+              {share
+                ? formatPercent(total + sales > 0 ? afterAssembly / (total + sales) : null)
+                : formatNumber(afterAssembly)}
             </Typography>
             {chart.data && (
               <Box>
@@ -139,9 +153,6 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
                   <Typography variant="body2" color="text.secondary">
                     {share ? "Доля отмен" : "Отмены"} по дате заказа
                   </Typography>
-                  <Box sx={{ml: "auto"}}>
-                    <ShareToggle share={share} onChange={setShare} countLabel="Заказы" />
-                  </Box>
                 </Stack>
                 <ChannelsLineChart
                   intervals={chart.data.intervals}
@@ -156,7 +167,12 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
             )}
             <CountsTable
               label="Причина"
-              valueLabel="Отмен"
+              valueLabel={share ? "% заказов" : "Отмен"}
+              format={
+                share
+                  ? (count) => formatPercent(total + sales > 0 ? count / (total + sales) : null)
+                  : formatNumber
+              }
               rows={summary.topCancelReasons.map((r) => ({
                 key: formatLossReason(r.reason),
                 count: r.count,

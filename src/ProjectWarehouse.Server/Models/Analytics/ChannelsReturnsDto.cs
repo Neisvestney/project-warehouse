@@ -2,11 +2,7 @@ using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Models.Analytics;
 
-/// <summary>
-/// Everything but <see cref="Series"/> is tied to the sales of the period (the order date), so the share does
-/// not depend on when the buyer brought the item back. <see cref="Series"/> is tied to the return date instead:
-/// how much came back in each interval.
-/// </summary>
+/// <summary>Return cohorts; DeliveredOnly uses delivered sales and order dates for both series.</summary>
 public class ChannelsReturnsDto
 {
     public DateOnly From { get; init; }
@@ -22,8 +18,10 @@ public class ChannelsReturnsDto
     public AnalyticsStep Step { get; init; }
     public List<AnalyticsIntervalDto> Intervals { get; init; } = [];
 
-    /// <summary>Returned units by return date, one per shop.</summary>
+    /// <summary>Returned units by return date, or by order date when DeliveredOnly is set.</summary>
     public List<ChannelSeriesDto> Series { get; init; } = [];
+
+    public List<ChannelSeriesDto> SoldSeries { get; init; } = [];
 
     public List<ReturnReasonUnitsDto> TopReasons { get; init; } = [];
     public List<CompensationCountDto> Compensations { get; init; } = [];

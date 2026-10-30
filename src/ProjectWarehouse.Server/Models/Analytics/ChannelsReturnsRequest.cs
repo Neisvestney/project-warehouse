@@ -7,4 +7,6 @@ public class ChannelsReturnsRequest : ChannelsFilterRequest
 
     /// <summary>Step of the volume-by-return-date series; null picks one by the period length.</summary>
     public AnalyticsStep? Step { get; init; }
+
+    public bool DeliveredOnly { get; init; }
 }
