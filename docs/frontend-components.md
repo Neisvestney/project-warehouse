@@ -1482,7 +1482,7 @@ many times a day with the same tag set. An empty filter is written as `tags=` in
 cleared filter stays cleared on the next visit. `groupAssemblyOrders(orders, grouping)` in `assemblyGrouping.ts` is
 a pure client-side split of the already loaded list, so a new mode is one more `AssemblyGrouping` member plus a
 `case` in `getGroupKey` returning `{key, label, rank}`. Groups sort by `rank`, then by label — `rank` pins fixed
-orders (task status, order type) and pushes catch-all groups («Без магазина», «Пустой состав») to the end.
+orders (task status, order type, marketplace via `MARKETPLACE_TYPE_RANK`) and pushes catch-all groups («Без магазина», «Пустой состав») to the end.
 
 - `status` uses the order's summary status: all tasks `done` → «Готово», all `pending` → «Ожидает», anything
   else → «В работе». Order status itself is always `Assembly` on this page, so it can't group anything.

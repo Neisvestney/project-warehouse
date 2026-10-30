@@ -95,7 +95,8 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
 
         return db.MarketplaceAccounts
             .Where(a => includeMarketplaces && (accountIds == null || accountIds.Contains(a.Id)))
-            .OrderBy(a => a.Name)
+            .OrderBy(a => a.Type)
+            .ThenBy(a => a.Name)
             .Select(a => new AnalyticsAccount(a.Id, a.Name, a.Type))
             .ToListAsync(ct);
     }

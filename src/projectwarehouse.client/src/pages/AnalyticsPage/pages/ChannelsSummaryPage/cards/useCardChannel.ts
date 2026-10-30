@@ -2,6 +2,7 @@ import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {DIRECT_CHANNEL} from "@/components/analytics/channelsQuery";
+import {compareMarketplaceAccounts} from "@/components/marketplace/marketplaceUtils";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
 export interface CardChannelOption {
@@ -34,7 +35,7 @@ export function useCardChannel(
   const options: CardChannelOption[] = [
     {value: null, label: shopsOnly ? "Все магазины" : "Все каналы"},
     ...[...(accounts ?? [])]
-      .sort((a, b) => a.name.localeCompare(b.name, "ru"))
+      .sort(compareMarketplaceAccounts)
       .filter((a) => onPage(a.id))
       .map((a) => ({value: a.id, label: a.name})),
     ...(onPage(DIRECT_CHANNEL) ? [{value: DIRECT_CHANNEL, label: "Прямые"}] : []),

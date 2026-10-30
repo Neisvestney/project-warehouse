@@ -1,4 +1,5 @@
 import type {AssemblyTaskStatus, OrderDetailsDto, OrderType} from "@/api/types.gen";
+import {MARKETPLACE_TYPE_RANK} from "@/components/marketplace/marketplaceUtils";
 import {ORDER_TYPE_LABELS} from "@/components/orders/orderUtils";
 import {TASK_STATUS_LABELS} from "@/components/orders/orderAssemblyUtils";
 
@@ -54,9 +55,9 @@ function getGroupKey(order: OrderDetailsDto, grouping: AssemblyGrouping): GroupK
         ? {
             key: order.marketplaceOrder.marketplaceAccountId,
             label: order.marketplaceOrder.marketplaceAccountName,
-            rank: 0,
+            rank: MARKETPLACE_TYPE_RANK[order.marketplaceOrder.marketplaceType],
           }
-        : {key: "", label: "Без магазина", rank: 1};
+        : {key: "", label: "Без магазина", rank: 2};
     case "warehouse":
       // склада нет только у внешних заказов, а они до сборки не доходят
       return order.warehouseId

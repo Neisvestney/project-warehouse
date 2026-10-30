@@ -105,7 +105,8 @@ public class AnalyticsSubjects(ApplicationDbContext db)
                     .Select(c => c.AccountId)
                     .Distinct()
                     .Select(Account)
-                    .OrderBy(a => a.Name, StringComparer.CurrentCulture)
+                    .OrderBy(a => a.Type)
+                    .ThenBy(a => a.Name, StringComparer.CurrentCulture)
                     .ToList(),
             };
         });

@@ -101,6 +101,7 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren))
             .ForMember(x => x.MarketplaceAccounts, opt => opt.MapFrom(w =>
                 w.MarketplaceCards.Select(mw => mw.MarketplaceAccount).Distinct()
+                    .OrderBy(a => a.Type).ThenBy(a => a.Name).ThenBy(a => a.Id)
             ))
             .ForMember(d => d.MainImage, opt => opt.MapFrom(EffectiveMainImage))
             .ForMember(d => d.Images, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
@@ -131,6 +132,7 @@ public class AppMapperProfile : Profile
         CreateMap<Warehouse, WarehouseDto>()
             .ForMember(x => x.MarketplaceAccounts, opt => opt.MapFrom(w =>
                 w.MarketplaceWarehouses.Select(mw => mw.MarketplaceAccount).Distinct()
+                    .OrderBy(a => a.Type).ThenBy(a => a.Name).ThenBy(a => a.Id)
             ));
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));
@@ -389,10 +391,10 @@ public class AppMapperProfile : Profile
 
         CreateMap<Organization, OrganizationDto>()
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null))
-            .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Name).ThenBy(a => a.Id)));
+            .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Type).ThenBy(a => a.Name).ThenBy(a => a.Id)));
         CreateMap<MarketplaceAccount, OrganizationAccountDto>();
         CreateMap<Organization, OrganizationSummaryDto>()
-            .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Name).ThenBy(a => a.Id)));
+            .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Type).ThenBy(a => a.Name).ThenBy(a => a.Id)));
         CreateMap<Organization, OrganizationShortSummaryDto>();
 
         // Marketplaces. MarketplaceAccountDto deliberately has no ApiKey member — only a mask.

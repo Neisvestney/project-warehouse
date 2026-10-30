@@ -2,10 +2,11 @@ import {alpha, useTheme} from "@mui/material";
 import {rainbowSurgePalette} from "@mui/x-charts/colorPalettes";
 import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.gen";
+import {compareMarketplaceAccounts} from "@/components/marketplace/marketplaceUtils";
 import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme";
 
 /**
- * Color of a channel, the same on every card. A shop keeps its place in the full list sorted by name, so
+ * Color of a channel, the same on every card. A shop keeps its place in the full list of shops, so
  * narrowing the channel filter does not repaint the ones that stay. Direct is a neutral grey that no
  * shop's palette color can be mistaken for.
  */
@@ -15,9 +16,7 @@ export function useChannelColor() {
   const {data: accounts} = useQuery(marketplacesGetAccountsShortOptions());
 
   const palette = rainbowSurgePalette(scheme);
-  const order = [...(accounts ?? [])]
-    .sort((a, b) => a.name.localeCompare(b.name, "ru"))
-    .map((a) => a.id);
+  const order = [...(accounts ?? [])].sort(compareMarketplaceAccounts).map((a) => a.id);
 
   return (accountId: string | null | undefined) => {
     if (accountId == null) return theme.palette.grey[scheme === "dark" ? 400 : 600];

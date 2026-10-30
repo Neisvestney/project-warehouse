@@ -124,7 +124,8 @@ public class MarketplaceLabelService(
             OrderLabelsGrouping.AccountArticle =>
             [
                 .. orderIds
-                    .OrderBy(id => orders[id].MarketplaceOrder!.MarketplaceAccount.Name, StringComparer.Ordinal)
+                    .OrderBy(id => orders[id].MarketplaceOrder!.MarketplaceAccount.Type)
+                    .ThenBy(id => orders[id].MarketplaceOrder!.MarketplaceAccount.Name, StringComparer.Ordinal)
                     // same-named accounts must not interleave
                     .ThenBy(id => orders[id].MarketplaceOrder!.MarketplaceAccountId)
                     .ThenBy(id => ArticleKey(orders[id]), StringComparer.Ordinal),

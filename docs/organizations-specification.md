@@ -113,7 +113,7 @@ Organization : IHasIdentity
 
 - `/organizations` — `OrganizationsPage`: таблица с поиском (`?search=`) и сортировкой, кнопка **Добавить**
   под `organizations.edit` открывает `OrganizationFormDialog`. Колонка **Аккаунты** — `MarketplaceAccountChip`
-  каждого привязанного аккаунта, включая неактивные (`OrganizationSummaryDto.accounts`, по имени).
+  каждого привязанного аккаунта, включая неактивные (`OrganizationSummaryDto.accounts`: Ozon, затем Wildberries, внутри площадки по имени).
 - Массовое действие **Этикетки** списка (`useOrganizationLabelsPrintAction` → `OrganizationLabelsPrintDialog`,
   только число копий) печатает `text`-раскладку `PrintPage`: заголовок — имена аккаунтов через запятую, ниже —
   название организации (без аккаунтов — только оно), маленький `DataMatrix` с `pw:org:<guid>`.

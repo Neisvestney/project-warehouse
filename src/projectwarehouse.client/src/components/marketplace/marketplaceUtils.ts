@@ -23,6 +23,22 @@ export const MARKETPLACE_TYPE_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
   wildberries: "wb",
 };
 
+export const MARKETPLACE_TYPE_RANK: Record<MarketplaceType, number> = {
+  ozon: 0,
+  wildberries: 1,
+};
+
+/** Ozon shops first, then Wildberries, by name within a marketplace — the order the server lists them in. */
+export function compareMarketplaceAccounts(
+  a: {type: MarketplaceType; name: string},
+  b: {type: MarketplaceType; name: string},
+): number {
+  return (
+    MARKETPLACE_TYPE_RANK[a.type] - MARKETPLACE_TYPE_RANK[b.type] ||
+    a.name.localeCompare(b.name, "ru")
+  );
+}
+
 export const MARKETPLACE_REQUIRES_CLIENT_ID: Record<MarketplaceType, boolean> = {
   ozon: true,
   wildberries: false,

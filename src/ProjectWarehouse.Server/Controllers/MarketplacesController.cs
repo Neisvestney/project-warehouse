@@ -104,7 +104,8 @@ public class MarketplacesController(
             query = query.Where(a => a.Type == type);
 
         var accounts = await query
-            .OrderBy(a => a.Name)
+            .OrderBy(a => a.Type)
+            .ThenBy(a => a.Name)
             .ThenBy(a => a.Id)
             .ProjectTo<MarketplaceAccountShortSummaryDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
@@ -626,7 +627,8 @@ public class MarketplacesController(
     {
         var accounts = await db.MarketplaceAccounts
             .Where(a => a.IsActive)
-            .OrderBy(a => a.Name)
+            .OrderBy(a => a.Type)
+            .ThenBy(a => a.Name)
             .Select(a => new
             {
                 Dto = new MarketplaceOrderSyncTargetDto
@@ -996,11 +998,12 @@ public class MarketplacesController(
         var accountIds = request.AccountIds.Distinct().ToList();
         await LockAccountsWithCardsAsync(accountIds, ct);
 
-        var accountNames = await db.MarketplaceAccounts
+        var accounts = await db.MarketplaceAccounts
             .Where(a => accountIds.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id, a => a.Name, ct);
+            .Select(a => new { a.Id, a.Name, a.Type })
+            .ToDictionaryAsync(a => a.Id, ct);
 
-        if (accountNames.Count != accountIds.Count)
+        if (accounts.Count != accountIds.Count)
             return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
 
         var changes = await rebind.PlanRebindAsync(accountIds, request.Since, ct);
@@ -1032,7 +1035,7 @@ public class MarketplacesController(
                 {
                     CardId = card.Id,
                     AccountId = first.AccountId,
-                    AccountName = accountNames[first.AccountId],
+                    AccountName = accounts[first.AccountId].Name,
                     OfferId = card.OfferId,
                     CardName = card.Name,
                     OldCatalogItemId = first.OldCatalogItemId,
@@ -1045,7 +1048,8 @@ public class MarketplacesController(
                     Lines = g.Count(),
                 };
             })
-            .OrderBy(i => i.AccountName)
+            .OrderBy(i => accounts[i.AccountId].Type)
+            .ThenBy(i => i.AccountName)
             .ThenBy(i => i.OfferId)
             .ToList();
 
