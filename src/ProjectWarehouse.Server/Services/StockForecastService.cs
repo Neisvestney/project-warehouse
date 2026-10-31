@@ -47,7 +47,8 @@ public class StockForecastService(
         bool? IsArchived = null,
         bool OnlyWarnings = false,
         bool? IsVariation = null,
-        bool HideVariationMembers = false);
+        bool HideVariationMembers = false,
+        bool ConsumptionFromVariations = false);
 
     /// <summary>A computed row before it is sorted; the catalog fields are the sort keys.</summary>
     private sealed record ForecastEntry(
@@ -75,7 +76,8 @@ public class StockForecastService(
 
         var filter = new CatalogFilter(
             request.SearchString, request.CatalogItemTypes, request.TagIds, request.ExcludedTagIds, request.IsArchived,
-            request.OnlyWarnings, request.IsVariation, HideVariationMembers: request.IsVariation is null);
+            request.OnlyWarnings, request.IsVariation, HideVariationMembers: request.IsVariation is null,
+            ConsumptionFromVariations: request.IsVariation == false && request.ConsumptionFromVariations);
 
         var source = await SourceForAsync(user, warehouseId, ct);
         var computed = await ComputeAsync(
@@ -275,6 +277,13 @@ public class StockForecastService(
             ? []
             : await LoadVariationsAsync(filter, restrictToIds, ct);
 
+        var consumptionVariations = filter.ConsumptionFromVariations
+            ? await LoadVariationsAsync(new CatalogFilter(), restrictToIds: null, ct)
+            : [];
+        var variationsByMember = consumptionVariations
+            .SelectMany(v => v.MemberIds.Select(id => (Id: id, Variation: v)))
+            .ToLookup(p => p.Id, p => p.Variation);
+
         // A requested variation needs its members' numbers even when the members themselves were not asked for.
         var physicalIds = restrictToIds?
             .Concat(variations.SelectMany(v => v.MemberIds))
@@ -310,6 +319,11 @@ public class StockForecastService(
             .Concat(accountForInTransit ? inTransit.Keys : [])
             .ToHashSet();
 
+        candidateIds.UnionWith(consumptionVariations
+            .Where(v => v.MemberIds.Any(movement.DailyOut.ContainsKey))
+            .SelectMany(v => v.MemberIds)
+            .ToList());
+
         var liveVariations = variations
             .Where(v => v.MemberIds.Any(candidateIds.Contains) || assembly.Variations.ContainsKey(v.Row.Id))
             .ToList();
@@ -336,7 +350,8 @@ public class StockForecastService(
         var entries = new List<ForecastEntry>(items.Count + liveVariations.Count);
 
         StockForecastDto Forecast(
-            Guid id, int itemStock, int itemPhysicalStock, int itemInTransit, int[] dailyOut, int[] dailyNet)
+            Guid id, int itemStock, int itemPhysicalStock, int itemInTransit, int[] dailyOut, int[] dailyNet,
+            int[]? consumptionDailyOut = null, bool[]? consumptionStockedDays = null)
         {
             var itemOverride = overrides.TryGetValue(id, out var days) ? days : (int?)null;
             var warningDays = StockForecastCalculator.ResolveWarningDays(itemOverride, warehouse.StockWarningDays);
@@ -346,7 +361,7 @@ public class StockForecastService(
 
             var result = StockForecastCalculator.Calculate(
                 accountForInTransit ? itemStock + itemInTransit : itemStock,
-                dailyOut, options, warningDays, stockedDays);
+                consumptionDailyOut ?? dailyOut, options, warningDays, consumptionStockedDays ?? stockedDays);
 
             return new StockForecastDto
             {
@@ -364,13 +379,28 @@ public class StockForecastService(
             };
         }
 
-        StockForecastDto ItemForecast(Guid id) =>
-            Forecast(id,
+        StockForecastDto ItemForecast(Guid id)
+        {
+            int[]? consumptionDailyOut = null;
+            bool[]? consumptionStockedDays = null;
+            if (variationsByMember.Contains(id))
+            {
+                var memberIds = variationsByMember[id].SelectMany(v => v.MemberIds).Distinct().ToList();
+                consumptionDailyOut = SumDays(memberIds, movement.DailyOut, options.WindowDays);
+                var dailyNet = SumDays(memberIds, movement.DailyNet, options.WindowDays);
+                consumptionStockedDays = StockForecastCalculator.FindStockedDays(
+                    memberIds.Sum(memberId => physicalStock.GetValueOrDefault(memberId)),
+                    dailyNet, consumptionDailyOut);
+            }
+
+            return Forecast(id,
                 stock.GetValueOrDefault(id),
                 physicalStock.GetValueOrDefault(id),
                 inTransit.GetValueOrDefault(id),
                 movement.DailyOut.GetValueOrDefault(id) ?? empty,
-                movement.DailyNet.GetValueOrDefault(id) ?? empty);
+                movement.DailyNet.GetValueOrDefault(id) ?? empty,
+                consumptionDailyOut, consumptionStockedDays);
+        }
 
         void AddEntry(CatalogRow item, StockForecastDto forecast, IReadOnlyList<StockForecastDto>? members = null)
         {
@@ -921,6 +951,7 @@ public class StockForecastService(
                 .OrderByDescending(e => StockForecastCalculator.IsWarning(e.Forecast.Status))
                 .ThenBy(e => e.Forecast.DaysLeft is null)
                 .ThenBy(e => e.Forecast.DaysLeft ?? 0)
+                .ThenBy(e => e.Forecast.DaysLeft == 0 && e.Forecast.Stock > 0)
                 .ThenBy(e => e.FullName)
                 .ThenBy(e => e.Forecast.CatalogItemId);
 
@@ -934,7 +965,9 @@ public class StockForecastService(
             StockForecastSortBy.InTransit => By(entries, e => e.Forecast.InTransit, desc),
             StockForecastSortBy.DailyConsumption => By(entries, e => e.Forecast.DailyConsumption, desc),
             StockForecastSortBy.DaysLeft => ThenBy(
-                entries.OrderBy(e => e.Forecast.DaysLeft is null), e => e.Forecast.DaysLeft ?? 0, desc),
+                ThenBy(entries.OrderBy(e => e.Forecast.DaysLeft is null),
+                    e => e.Forecast.DaysLeft ?? 0, desc),
+                e => e.Forecast.DaysLeft == 0 && e.Forecast.Stock > 0, desc),
             _ => By(entries, e => e.FullName, desc),
         };
 

@@ -26,7 +26,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {useQuery} from "@tanstack/react-query";
 import {stockForecastGetListOptions} from "@/api/@tanstack/react-query.gen";
-import type {StockForecastRowDto, StockForecastSortBy} from "@/api/types.gen";
+import type {CatalogItemType, StockForecastRowDto, StockForecastSortBy} from "@/api/types.gen";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import DataTableContainer from "@/components/DataTableContainer";
 import FiltersBar from "@/components/FiltersBar";
@@ -37,19 +37,24 @@ import WarehousesSelect from "@/components/WarehousesSelect";
 import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
 import CatalogTypesFilter from "@/components/catalog/CatalogTypesFilter";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
-import {PHYSICAL_CATALOG_ITEMS, useCatalogTypesFilter} from "@/features/catalog";
-import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
+import {NO_ITEM_TYPES, PHYSICAL_CATALOG_ITEMS} from "@/features/catalog";
+import {useDebouncedLocalState} from "@/hooks/useDebouncedLocalState";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useHasPermission} from "@/hooks/usePermission";
-import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+import {useSyncedWithQueryAndStorageState} from "@/hooks/useSyncedWithQueryAndStorageState";
 import {useTableSort} from "@/hooks/useTableSort";
 import ForecastTableRow from "./ForecastTableRow";
 import StockForecastSettingsDialog from "./StockForecastSettingsDialog";
 import StockWarningOverrideDialog, {
   type StockWarningOverrideTarget,
 } from "./StockWarningOverrideDialog";
-import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {
+  EMPTY_TAG_FILTER,
+  isTagFilterActive,
+  parseTagFilter,
+  serializeTagFilter,
+} from "@/features/tags";
 
 const COLUMN_COUNT = 10;
 
@@ -83,11 +88,13 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
   const showWarehouseFilter = !warehouseId;
   const canEditWarehouse = useHasPermission(["warehouses.edit", "warehouses.edit_assigned"]);
 
-  const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+  const [searchString, setSearchString] = useSyncedWithQueryAndStorageState(
     "search",
+    "stockForecast.search",
     (q) => (typeof q === "string" ? q : ""),
-    (v) => v || null,
+    (v) => v,
   );
+  const [inputValue, setInputValue] = useDebouncedLocalState(searchString, setSearchString);
 
   // The composite `default` rule is the table's starting state, so it is not one of the clickable
   // columns; `clearable` gives it back on a third click, since nothing else can express it.
@@ -97,53 +104,87 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
     {clearable: true},
   );
 
-  const [itemTypes, setItemTypes] = useCatalogTypesFilter("types", PHYSICAL_CATALOG_ITEMS);
+  const [itemTypes, setItemTypes] = useSyncedWithQueryAndStorageState<CatalogItemType[]>(
+    "types",
+    "stockForecast.types",
+    (q) => {
+      if (q === NO_ITEM_TYPES) return [];
+      const parsed = q
+        ?.split(",")
+        .filter((type) => PHYSICAL_CATALOG_ITEMS.includes(type as CatalogItemType));
+      return parsed?.length ? (parsed as CatalogItemType[]) : PHYSICAL_CATALOG_ITEMS;
+    },
+    (v) => (v.length > 0 ? v.join(",") : NO_ITEM_TYPES),
+  );
 
-  const [tagFilter, setTagFilter] = useTagFilterState();
+  const [tagFilter, setTagFilter] = useSyncedWithQueryAndStorageState(
+    "tags",
+    "stockForecast.tags",
+    parseTagFilter,
+    (v) => serializeTagFilter(v) ?? "",
+  );
 
-  const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
+  const [isArchived, setIsArchived] = useSyncedWithQueryAndStorageState<boolean | null>(
     "archived",
+    "stockForecast.archived",
     (q) => (q === "true" ? true : q === "null" ? null : false),
-    (v) => (v === false ? null : String(v)),
+    (v) => String(v),
   );
 
-  const [isVariation, setIsVariation] = useSyncedWithQueryState<boolean | null>(
+  const [isVariation, setIsVariation] = useSyncedWithQueryAndStorageState<boolean | null>(
     "variations",
+    "stockForecast.variations",
     (q) => (q === "true" ? true : q === "false" ? false : null),
-    (v) => (v === null ? null : String(v)),
+    (v) => String(v),
   );
 
-  const [onlyWarnings, setOnlyWarnings] = useSyncedWithQueryState<boolean>(
+  const [onlyWarnings, setOnlyWarnings] = useSyncedWithQueryAndStorageState<boolean>(
     "warnings",
+    "stockForecast.warnings",
     (q) => q === "true",
-    (v) => (v ? "true" : null),
+    (v) => String(v),
   );
 
-  const [filterWarehouseId, setFilterWarehouseId] = useSyncedWithQueryState<string | null>(
+  const [filterWarehouseId, setFilterWarehouseId] = useSyncedWithQueryAndStorageState<
+    string | null
+  >(
     "warehouse",
-    (q) => (typeof q === "string" ? q : null),
-    (v) => v,
+    "stockForecast.warehouse",
+    (q) => q || null,
+    (v) => v ?? "",
   );
 
-  const [accountForAssembly, setAccountForAssembly] = useSyncedWithQueryState<boolean>(
+  const [accountForAssembly, setAccountForAssembly] = useSyncedWithQueryAndStorageState<boolean>(
     "accountForAssembly",
+    "stockForecast.accountForAssembly",
     (q) => (typeof q === "string" ? q == "true" : false),
-    (v) => (v ? "true" : null),
+    (v) => String(v),
   );
 
-  const [accountForAllOrders, setAccountForAllOrders] = useSyncedWithQueryState<boolean>(
+  const [accountForAllOrders, setAccountForAllOrders] = useSyncedWithQueryAndStorageState<boolean>(
     "accountForAllOrders",
+    "stockForecast.accountForAllOrders",
     (q) => q === "true",
-    (v) => (v ? "true" : null),
+    (v) => String(v),
   );
 
-  const [accountForInTransit, setAccountForInTransit] = useSyncedWithQueryState<boolean>(
+  const [accountForInTransit, setAccountForInTransit] = useSyncedWithQueryAndStorageState<boolean>(
     "accountForInTransit",
+    "stockForecast.accountForInTransit",
     (q) => q === "true",
-    (v) => (v ? "true" : null),
+    (v) => String(v),
   );
 
   const effectiveWarehouseId = warehouseId ?? filterWarehouseId;
+
+  const [consumptionFromVariations, setConsumptionFromVariations] =
+    useSyncedWithQueryAndStorageState<boolean>(
+      "consumptionFromVariations",
+      "stockForecast.consumptionFromVariations",
+      (q) => q === "true",
+      (v) => String(v),
+    );
+  const effectiveConsumptionFromVariations = isVariation === false && consumptionFromVariations;
 
   // The type filter narrows physical rows only, so an empty selection leaves just the variations.
   const effectiveIsVariation = itemTypes.length === 0 && isVariation === null ? true : isVariation;
@@ -163,6 +204,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       AccountForAssembly: accountForAssembly,
       AccountForAllOrders: accountForAllOrders,
       AccountForInTransit: accountForInTransit,
+      ConsumptionFromVariations: effectiveConsumptionFromVariations,
       SortBy: sortBy,
       SortOrder: sortOrder,
     },
@@ -177,6 +219,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       accountForAssembly,
       accountForAllOrders,
       accountForInTransit,
+      effectiveConsumptionFromVariations,
       sortBy,
       sortOrder,
     ],
@@ -397,7 +440,22 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           </ToggleButton>
         </FiltersBar>
 
-        <Stack direction="row" sx={{alignItems: "center"}} spacing={1}>
+        <Stack direction="row" sx={{alignItems: "center", flexWrap: "wrap"}} spacing={1}>
+          {isVariation === false && (
+            <Tooltip title="Расход всех товаров из вариаций позиции; общие участники учитываются один раз. Остаток остаётся собственным">
+              <span>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={consumptionFromVariations}
+                      onChange={(e) => setConsumptionFromVariations(e.target.checked)}
+                    />
+                  }
+                  label="Расход из расхода вариаций"
+                />
+              </span>
+            </Tooltip>
+          )}
           <Tooltip title="Вариация резервируется под участника, собранного в прошлый раз на этом складе; если такой сборки нет — только в строке самой вариации">
             <span>
               <FormControlLabel
@@ -461,7 +519,13 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
                 </TableCell>
                 {SORTABLE_COLUMNS.slice(3).map(renderSortableHeader)}
                 <TableCell align="right">
-                  <Tooltip title="Сколько дней окна расчёта товара не было на складе — эти дни не входят в расход/день">
+                  <Tooltip
+                    title={
+                      effectiveConsumptionFromVariations
+                        ? "Сколько дней окна расчёта самой позиции не было на складе; расход вариаций исключает дни без суммарного остатка их участников"
+                        : "Сколько дней окна расчёта товара не было на складе — эти дни не входят в расход/день"
+                    }
+                  >
                     <span>Без остатка</span>
                   </Tooltip>
                 </TableCell>

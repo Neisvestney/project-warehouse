@@ -58,6 +58,9 @@ public class StockForecastListRequest
     /// </summary>
     public bool AccountForInTransit { get; init; }
 
+    /// <summary>Uses consumption of distinct members of the item's variations; applies only when IsVariation is false.</summary>
+    public bool ConsumptionFromVariations { get; init; }
+
     public StockForecastSortBy SortBy { get; init; } = StockForecastSortBy.Default;
 
     public SortOrder SortOrder { get; init; } = SortOrder.Asc;

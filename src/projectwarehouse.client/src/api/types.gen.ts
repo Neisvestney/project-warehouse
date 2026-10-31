@@ -11154,6 +11154,10 @@ export type StockForecastGetListData = {
      * `Stock` stays what is on the shelf.
      */
     AccountForInTransit?: boolean;
+    /**
+     * Uses consumption of distinct members of the item's variations; applies only when IsVariation is false.
+     */
+    ConsumptionFromVariations?: boolean;
     SortBy?: StockForecastSortBy;
     SortOrder?: SortOrder;
     page?: number;

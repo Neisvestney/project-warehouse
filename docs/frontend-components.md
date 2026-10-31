@@ -858,6 +858,11 @@ draw: `StockForecastPage` (`/storage/forecast`, section `forecast` of `storageCo
 visible) and `WarehouseForecastPage` (`/storage/warehouses/:id/forecast`, `warehouseId` from the route, no
 select). `WarehouseViewPage` links to the latter with a «Прогноз остатков» button next to «Остатки».
 
+Search, warehouse, item types, tags, archive/variation filters and calculation flags use
+`useSyncedWithQueryAndStorageState` with `stockForecast.*` storage keys shared by both pages.
+URL values take priority over stored preferences. Explicit empty selections and disabled flags are
+serialized too, so clearing a filter survives reopening the page. Search keeps its input debounce.
+
 **The warehouse is mandatory.** In the unscoped page `WarehousesSelect` is the first control of the filter bar
 and its value lives in `?warehouse=`. Until one is picked the list query is `enabled: false` and the table
 shows «Выберите склад». The select carries `canAutoSelect`, so a user with exactly one warehouse gets it
