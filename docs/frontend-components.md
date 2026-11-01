@@ -428,6 +428,8 @@ The status filter of a document list (orders, receipts, write-offs, stocktakes) 
 `statuses` (tab order), `labels` and `counts` — the endpoint's `meta.statusCounts`, which ignores the status filter
 and honours every other one, so a tab shows how many documents the list would hold if picked; «Все» is their
 sum, and a zero badge is greyed out. The value lives in the `status` URL param, `""` standing for «Все».
+Optional `leadingTabs` adds aggregate tabs before «Все», each with its own value, label and count. Their
+counts are separate from `counts`, so the «Все» sum includes each document only once.
 
 Pass the list query's `isFetching` as `loading`: while any request is in flight — a tab switch, a filter change,
 a background refetch — every badge is covered by a skeleton, even when the counts come from cache. Wire `counts`
@@ -1236,6 +1238,10 @@ as does dropping the notes column with `showNotes={false}` (the marketplace page
 
 Статусный фильтр — это [`StatusTabs`](#statustabs) над панелью фильтров. Колонка «Статус» в таблице остаётся и
 при выбранном табе.
+Первый таб «Активные» выбран по умолчанию и передаёт в API массив `statuses`: `draft`, `confirmed`, `assembly`,
+`assembled`. Его счётчик — сумма этих статусов из `meta.statusCounts`. В URL отсутствие `status` означает
+«Активные», `status=all` — «Все», отдельный статус сохраняется своим именем. При скрытой колонке `status`
+оба статусных ограничения отсутствуют в запросе.
 
 В сводке над таблицей две просрочки по `plannedShipmentAt`: «Просрочена сборка» (`error.main`) — заказ ещё не
 собран (черновик, подтверждён, на сборке), и «Просрочена отгрузка» (`warning.main`) — собран, но не отгружен.

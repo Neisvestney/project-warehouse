@@ -2420,10 +2420,12 @@ export const ordersGetSupply = <ThrowOnError extends boolean = false>(
  * List orders (paginated, filtered, sorted).
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 500), `searchString`,
- * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
+ * `warehouseId`, `type`, `status`, `statuses`, `marketplaceType`, `marketplaceAccountId`,
  * `marketplaceStatus`, `supplyId`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
  * `excludedTagIds`, `overdue`, `unmapped` (default false), `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
+ * `statuses` keeps any of the supplied statuses; an empty list is unrestricted. If `status` is also
+ * supplied, both constraints apply. Status facets ignore both constraints.
  * `unmapped` keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
  * `meta`, so `unmappedOrderCount` then equals the total.
  * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,

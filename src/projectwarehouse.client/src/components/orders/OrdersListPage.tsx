@@ -112,6 +112,9 @@ const ALL_STATUSES: OrderStatus[] = [
 ];
 
 const ALL_OVERDUE_KINDS: OrderOverdueKind[] = ["assembly", "shipment"];
+const ACTIVE_STATUSES: OrderStatus[] = ["draft", "confirmed", "assembly", "assembled"];
+type OrderStatusTab = OrderStatus | "active" | "";
+const STATUS_TAB_LABELS = {...ORDER_STATUS_LABELS, active: "Активные"};
 
 export interface OrdersListExtraColumn {
   key: string;
@@ -214,10 +217,10 @@ function OrdersListPage({
     (v) => v.join(",") || null,
   );
 
-  const [status, setStatus] = useSyncedWithQueryState<OrderStatus | "">(
+  const [status, setStatus] = useSyncedWithQueryState<OrderStatusTab>(
     "status",
-    (q) => (statuses.includes(q as OrderStatus) ? (q as OrderStatus) : ""),
-    (v) => v || null,
+    (q) => (q === "all" ? "" : statuses.includes(q as OrderStatus) ? (q as OrderStatus) : "active"),
+    (v) => (v === "active" ? null : v || "all"),
   );
 
   const [marketplaceType, setMarketplaceType] = useSyncedWithQueryState<MarketplaceType | "">(
@@ -269,7 +272,8 @@ function OrdersListPage({
   const isHidden = (key: OrderSortBy) => hiddenColumns.includes(key);
   const showStatusFilter = !isHidden("status");
   const showWarehouseFilter = !isHidden("warehouseName");
-  const statusFilter = showStatusFilter ? status : "";
+  const statusFilter = showStatusFilter && status !== "active" ? status : "";
+  const statusesFilter = showStatusFilter && status === "active" ? ACTIVE_STATUSES : undefined;
   // only a draft is held back by an unmapped line, so the counter and its filter belong to the FBS drafts tab
   const showUnmapped = type === "fbs" && statusFilter === "draft";
   const unmappedFilter = showUnmapped && unmapped;
@@ -300,6 +304,7 @@ function OrdersListPage({
       type,
       warehouseId: (showWarehouseFilter ? warehouseId : null) ?? undefined,
       status: statusFilter || undefined,
+      statuses: statusesFilter,
       catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
       tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
       excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
@@ -564,8 +569,17 @@ function OrdersListPage({
           value={status}
           onChange={setStatus}
           statuses={statuses}
-          labels={ORDER_STATUS_LABELS}
+          labels={STATUS_TAB_LABELS}
           counts={meta?.statusCounts}
+          leadingTabs={[
+            {
+              value: "active",
+              label: STATUS_TAB_LABELS.active,
+              count: meta?.statusCounts
+                .filter((c) => ACTIVE_STATUSES.includes(c.status))
+                .reduce((sum, c) => sum + c.count, 0),
+            },
+          ]}
           loading={isFetching}
         />
       )}

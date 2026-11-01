@@ -432,10 +432,12 @@ public class OrdersController(
     /// <summary>List orders (paginated, filtered, sorted).</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 500), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
+    /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>statuses</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
     /// <c>marketplaceStatus</c>, <c>supplyId</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
     /// <c>excludedTagIds</c>, <c>overdue</c>, <c>unmapped</c> (default false), <c>sortBy</c> (default <c>Number</c>),
     /// <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>statuses</c> keeps any of the supplied statuses; an empty list is unrestricted. If <c>status</c> is also
+    /// supplied, both constraints apply. Status facets ignore both constraints.
     /// <c>unmapped</c> keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
     /// <c>meta</c>, so <c>unmappedOrderCount</c> then equals the total.
     /// <c>overdue</c> keeps orders past their planned shipment date: <c>Assembly</c> — not assembled yet (draft,
@@ -463,6 +465,7 @@ public class OrdersController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] OrderType? type = null,
         [FromQuery] OrderStatus? status = null,
+        [FromQuery] IReadOnlyList<OrderStatus>? statuses = null,
         [FromQuery] MarketplaceType? marketplaceType = null,
         [FromQuery] Guid? marketplaceAccountId = null,
         [FromQuery] MarketplaceOrderStatus? marketplaceStatus = null,
@@ -508,6 +511,7 @@ public class OrdersController(
             .Where(o => marketplaceStatus == null ||
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
             .Where(o => status == null || o.Status == status)
+            .Where(o => statuses == null || statuses.Count == 0 || statuses.Contains(o.Status))
             .Where(o => overdue == null || o.OverdueKindAt(now) == overdue);
 
         var query = sortBy switch
@@ -540,6 +544,7 @@ public class OrdersController(
 
         List<OrderFacetCell> CellsExcept(OrderFacet? skip) => cells
             .Where(c => skip == OrderFacet.Status || status == null || c.Status == status)
+            .Where(c => skip == OrderFacet.Status || statuses == null || statuses.Count == 0 || statuses.Contains(c.Status))
             .Where(c => skip == OrderFacet.Overdue || overdue == null || c.Overdue == overdue)
             .Where(c => skip == OrderFacet.Warehouse || warehouseId == null || c.WarehouseId == warehouseId)
             .Where(c => skip == OrderFacet.Source ||

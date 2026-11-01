@@ -7675,6 +7675,7 @@ export type OrdersGetAllData = {
     warehouseId?: string;
     type?: OrderType;
     status?: OrderStatus;
+    statuses?: Array<OrderStatus>;
     marketplaceType?: MarketplaceType;
     marketplaceAccountId?: string;
     marketplaceStatus?: MarketplaceOrderStatus;

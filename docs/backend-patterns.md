@@ -483,7 +483,9 @@ so they stay stable while the user walks the pages. Each of them is its own roun
 meta DTO stays small; a handful of counters over the same filter belongs in one `GroupBy` instead.
 `OrdersController.GetAll` groups once by `(Status, OverdueKindAt(now), WarehouseId, account, marketplace type,
 marketplace status)` over the query without any of those filters, then derives every facet in memory from the
-few dozen cells: a facet's counts take the cells matching every filter except its own. A key column of the
+few dozen cells: a facet's counts take the cells matching every filter except its own. The
+order status facet ignores both the single `status` and the multi-value `statuses` constraints; every other
+facet and the page total apply both. A key column of the
 order itself costs only a wider hash key; a column from another table costs its join — the marketplace columns
 bring a left join to `MarketplaceOrders`, still cheaper than a second pass over a search. A many-to-many facet
 such as tags cannot join the grouping, because it would multiply the cells. The `overdue` filter calls the same

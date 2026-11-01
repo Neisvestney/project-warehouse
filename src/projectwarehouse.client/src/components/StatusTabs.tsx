@@ -14,6 +14,7 @@ interface StatusTabsProps<T extends string> {
   labels: Record<T, string>;
   /** From the list endpoint's `meta.statusCounts`; omitted while nothing has loaded yet. */
   counts?: StatusCount<T>[];
+  leadingTabs?: {value: T; label: string; count: number | undefined}[];
   /** Covers every badge with a skeleton while the list is fetching, even over retained counts. */
   loading?: boolean;
 }
@@ -51,6 +52,7 @@ function StatusTabs<T extends string>({
   statuses,
   labels,
   counts,
+  leadingTabs,
   loading = false,
 }: StatusTabsProps<T>) {
   const countOf = (status: T) => counts?.find((c) => c.status === status)?.count;
@@ -72,6 +74,9 @@ function StatusTabs<T extends string>({
       allowScrollButtonsMobile
       sx={{borderBottom: 1, borderColor: "divider"}}
     >
+      {leadingTabs?.map((tab) => (
+        <Tab key={tab.value} value={tab.value} label={label(tab.label, tab.count)} />
+      ))}
       <Tab value="" label={label("Все", total)} />
       {statuses.map((s) => (
         <Tab key={s} value={s} label={label(labels[s], countOf(s))} />
