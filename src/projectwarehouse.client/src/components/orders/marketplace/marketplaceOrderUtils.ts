@@ -78,7 +78,8 @@ export const MARKETPLACE_RETURN_COMPENSATION_LABELS: Record<
 };
 
 export const MARKETPLACE_CANCELLATION_TYPE_LABELS: Record<MarketplaceCancellationType, string> = {
-  unknown: "Неизвестен",
+  unknown: "Не распознан",
+  noData: "Инициатор не указан",
   seller: "Продавец",
   customer: "Покупатель",
   marketplace: "Площадка",

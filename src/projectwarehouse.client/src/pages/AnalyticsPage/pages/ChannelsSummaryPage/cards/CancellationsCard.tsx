@@ -26,6 +26,7 @@ const TYPE_ORDER: MarketplaceCancellationType[] = [
   "marketplace",
   "system",
   "delivery",
+  "noData",
   "unknown",
 ];
 
@@ -65,6 +66,7 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
     marketplace: theme.palette.secondary.main,
     system: theme.palette.info.main,
     delivery: theme.palette.success.main,
+    noData: theme.palette.grey[400],
     unknown: theme.palette.grey[500],
   };
 

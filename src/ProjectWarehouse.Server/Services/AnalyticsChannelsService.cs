@@ -1123,7 +1123,7 @@ public class AnalyticsChannelsService(
             .GroupBy(m => new
             {
                 m.MarketplaceAccountId,
-                Type = m.CancellationType ?? MarketplaceCancellationType.Unknown,
+                Type = m.CancellationType ?? MarketplaceCancellationType.NoData,
             })
             .Select(g => new
             {

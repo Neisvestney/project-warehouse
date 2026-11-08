@@ -1153,7 +1153,7 @@ public class OzonClient(
         switch (type?.ToLowerInvariant())
         {
             case null:
-                return MarketplaceCancellationType.Unknown;
+                return MarketplaceCancellationType.NoData;
             case "seller":
                 return MarketplaceCancellationType.Seller;
             case "client" or "customer":

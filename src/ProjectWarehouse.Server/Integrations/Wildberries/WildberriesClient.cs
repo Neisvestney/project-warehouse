@@ -386,7 +386,7 @@ public class WildberriesClient(
             unit.PlacedAt,
             null,
             1,
-            sold ? null : new ExternalCancellation(null, MarketplaceCancellationType.Unknown, null, null, null, null),
+            sold ? null : new ExternalCancellation(null, MarketplaceCancellationType.NoData, null, null, null, null),
             [item],
             ExternalPostingScheme.Fbo,
             unit.PlacedAt,
@@ -567,7 +567,7 @@ public class WildberriesClient(
         if (order.IsCancel == true)
             // the report does not say who cancelled
             return (MarketplaceOrderStatus.Cancelled,
-                new ExternalCancellation(null, MarketplaceCancellationType.Unknown, null, null, null, null));
+                new ExternalCancellation(null, MarketplaceCancellationType.NoData, null, null, null, null));
         return (MarketplaceOrderStatus.Delivering, null);
     }
 

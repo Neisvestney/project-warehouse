@@ -1866,12 +1866,8 @@ export type MarketplaceAutoMapRuleDto = {
   updatedAt: string;
 };
 
-/**
- * Who cancelled a posting, collapsed from the marketplace's own vocabulary. Unknown = 0 so an
- * unrecognized initiator never reads as a real one; the raw value is kept alongside for diagnosis.
- */
 export type MarketplaceCancellationType =
-  "unknown" | "seller" | "customer" | "marketplace" | "system" | "delivery";
+  "unknown" | "seller" | "customer" | "marketplace" | "system" | "delivery" | "noData";
 
 export type MarketplaceCapabilities =
   | "none"

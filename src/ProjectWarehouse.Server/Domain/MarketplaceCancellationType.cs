@@ -1,12 +1,11 @@
 namespace ProjectWarehouse.Server.Domain;
 
-/// <summary>
-/// Who cancelled a posting, collapsed from the marketplace's own vocabulary. Unknown = 0 so an
-/// unrecognized initiator never reads as a real one; the raw value is kept alongside for diagnosis.
-/// </summary>
 public enum MarketplaceCancellationType
 {
+    // The source supplied an initiator the mapping does not recognize.
     Unknown = 0,
+    // The source does not report the cancellation initiator.
+    NoData = 6,
     Seller = 1,
     Customer = 2,
     Marketplace = 3,
