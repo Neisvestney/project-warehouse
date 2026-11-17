@@ -192,6 +192,10 @@ Standard list-page table shell: `Paper` → `LinearProgress` (while fetching) �
 `TablePagination` with Russian labels baked in. Extends `PaperProps`. The `page` prop is **1-based**, matching
 the `usePaginatedParams` convention; the component converts to MUI's 0-based value internally.
 
+Changing the page size preserves the current page if it is in range, otherwise it selects the last page.
+After fetching finishes, a page beyond the current total is also corrected through `onPageChange`.
+An empty result uses page 1. While fetching, temporary totals do not change the stored page.
+
 An `IntersectionObserver` watches the `TablePagination` wrapper. While it is off-screen and the result set spans
 more than one page, a floating pill (`position: fixed`, bottom-right, `zIndex.fab`) fades in with prev/next
 arrows and a `21–40 из 250` counter, so paging stays reachable from the middle of a long list. It hides again as

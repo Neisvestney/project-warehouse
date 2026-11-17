@@ -61,8 +61,14 @@ function DataTableContainer({
   }, [disableFloatingPagination]);
 
   const lastPage = Math.max(1, Math.ceil(count / rowsPerPage));
-  const from = count === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const to = Math.min(count, page * rowsPerPage);
+  const displayedPage = Math.min(page, lastPage);
+
+  useEffect(() => {
+    if (!isFetching && page > lastPage) onPageChange(lastPage);
+  }, [isFetching, page, lastPage, onPageChange]);
+
+  const from = count === 0 ? 0 : (displayedPage - 1) * rowsPerPage + 1;
+  const to = Math.min(count, displayedPage * rowsPerPage);
   const showFloating = !disableFloatingPagination && !paginationVisible && count > rowsPerPage;
   // a background refetch keeps the previous totals, so only a first load has nothing to show
   const showSkeleton = isFetching && count === 0;
@@ -94,13 +100,20 @@ function DataTableContainer({
           <TablePagination
             component="div"
             count={count}
-            page={page - 1}
+            page={displayedPage - 1}
             rowsPerPage={rowsPerPage}
             rowsPerPageOptions={[
               ...new Set([rowsPerPage, ...rowsPerPageOptions].sort((a, b) => a - b)),
             ]}
             onPageChange={(_, newPage) => onPageChange(newPage + 1)}
-            onRowsPerPageChange={(e) => onRowsPerPageChange(Number(e.target.value))}
+            onRowsPerPageChange={(e) => {
+              const size = Number(e.target.value);
+              if (!isFetching) {
+                const nextPage = Math.min(page, Math.max(1, Math.ceil(count / size)));
+                if (nextPage !== page) onPageChange(nextPage);
+              }
+              onRowsPerPageChange(size);
+            }}
             labelRowsPerPage={isMobile ? "" : "Строк на странице:"}
             labelDisplayedRows={({from, to, count}) => `${from}–${to} из ${count}`}
           />
@@ -130,8 +143,8 @@ function DataTableContainer({
           <IconButton
             size="small"
             aria-label="Предыдущая страница"
-            disabled={isFetching || page <= 1}
-            onClick={() => onPageChange(page - 1)}
+            disabled={isFetching || displayedPage <= 1}
+            onClick={() => onPageChange(displayedPage - 1)}
           >
             <KeyboardArrowLeftIcon fontSize="small" />
           </IconButton>
@@ -145,8 +158,8 @@ function DataTableContainer({
           <IconButton
             size="small"
             aria-label="Следующая страница"
-            disabled={isFetching || page >= lastPage}
-            onClick={() => onPageChange(page + 1)}
+            disabled={isFetching || displayedPage >= lastPage}
+            onClick={() => onPageChange(displayedPage + 1)}
           >
             <KeyboardArrowRightIcon fontSize="small" />
           </IconButton>

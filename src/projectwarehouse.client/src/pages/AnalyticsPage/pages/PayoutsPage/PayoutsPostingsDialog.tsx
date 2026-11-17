@@ -174,7 +174,6 @@ function PayoutsPostingsDialogContent({
           rowsPerPage={pageSize}
           onRowsPerPageChange={(size) => {
             setPageSize(size);
-            setPage(1);
             try {
               localStorage.setItem("table-page-size:payouts-postings", String(size));
             } catch {
