@@ -18,7 +18,11 @@ export function useSyncedWithQueryAndStorageState<T>(
   // on every render but semantics don't.
   const setAndStore = useCallback(
     (v: T) => {
-      localStorage.setItem(storageKey, toQuery(v));
+      try {
+        localStorage.setItem(storageKey, toQuery(v));
+      } catch {
+        // URL state remains usable when browser storage is unavailable.
+      }
       setValue(v);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -28,7 +32,12 @@ export function useSyncedWithQueryAndStorageState<T>(
   // Mount-only: from here on the param exists and the URL stays in charge.
   useEffect(() => {
     if (hasParam) return;
-    const stored = localStorage.getItem(storageKey);
+    let stored: string | null;
+    try {
+      stored = localStorage.getItem(storageKey);
+    } catch {
+      return;
+    }
     if (stored !== null && stored !== toQuery(value)) setValue(fromQuery(stored));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

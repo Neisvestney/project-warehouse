@@ -271,6 +271,11 @@ Pagination wrapper managing `page` and `pageSize` from the URL. Resets `page` to
 params settle or immediate params change — otherwise the new filters and the old page number would fire one
 wasted request together. Syncs `page` back from the URL on browser back/forward.
 
+The selected page size is saved in `localStorage` under `table-page-size:<pathname>:<pageSizeParam>` via
+`useSyncedWithQueryAndStorageState`. An explicit URL value takes priority; without it, the saved preference
+is restored. Page-size changes keep the query param even when the default is selected. The payouts postings
+dialog keeps its independent page-size preference under `table-page-size:payouts-postings` without URL state.
+
 ```typescript
 const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
   {},

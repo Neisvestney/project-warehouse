@@ -16,7 +16,7 @@ interface SyncOrdersAccountAccordionProps {
   accountName: string;
   run?: MarketplaceSyncRunDto;
   /** Set when the account was rejected outright and no run was ever started. */
-  rejection?: AppFieldError;
+  rejection?: AppFieldError | string;
 }
 
 function SyncOrdersAccountAccordion({
@@ -33,7 +33,7 @@ function SyncOrdersAccountAccordion({
               {accountName}
             </Typography>
             <Typography variant="caption" color="error">
-              {resolveErrorMessage(rejection)}
+              {typeof rejection === "string" ? rejection : resolveErrorMessage(rejection)}
             </Typography>
           </Stack>
         </AccordionSummary>

@@ -19,14 +19,15 @@ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   marketplacesGetOrderSyncTargetsOptions,
   marketplacesGetSyncRunsByIdsOptions,
-  marketplacesSyncOrdersMutation,
   ordersGetAllQueryKey,
 } from "@/api/@tanstack/react-query.gen";
 import type {
   MarketplaceOrderSyncTargetDto,
   SyncOrdersFailedItem,
+  SyncOrdersRequest,
   SyncOrdersStartedItem,
 } from "@/api/types.gen";
+import {marketplacesStartSync, marketplacesSyncOrders} from "@/api/sdk.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {byOperation} from "@/utils/queryKeys";
 import {useEntityWatchMany} from "@/hooks/useEntityWatch";
@@ -40,15 +41,20 @@ const RUNNING_POLL_MS = 2000;
 interface SyncOrdersDialogProps {
   open: boolean;
   onClose: () => void;
+  statusesOnly?: boolean;
 }
 
-function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
+type FailedAccount = Omit<SyncOrdersFailedItem, "error"> & {
+  error: SyncOrdersFailedItem["error"] | string;
+};
+
+function SyncOrdersDialog({open, onClose, statusesOnly = false}: SyncOrdersDialogProps) {
   const queryClient = useQueryClient();
   const {showConfirm} = useModal();
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [started, setStarted] = useState<SyncOrdersStartedItem[]>([]);
-  const [failed, setFailed] = useState<SyncOrdersFailedItem[]>([]);
+  const [failed, setFailed] = useState<FailedAccount[]>([]);
   const [error, setError] = useState<string | null>(null);
   const wasRunning = useRef(false);
   const confirmingClose = useRef(false);
@@ -106,7 +112,35 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
   }, [anyRunning, queryClient]);
 
   const mutation = useMutation({
-    ...marketplacesSyncOrdersMutation(),
+    mutationFn: async ({body}: {body: SyncOrdersRequest}) => {
+      if (!statusesOnly) {
+        const {data} = await marketplacesSyncOrders({body, throwOnError: true});
+        return data;
+      }
+
+      const results = await Promise.allSettled(
+        body.accountIds.map(async (accountId) => {
+          const {data} = await marketplacesStartSync({
+            path: {id: accountId},
+            body: {scope: "ordersBackground"},
+            throwOnError: true,
+          });
+          return {accountId, syncRunId: data.syncRunId};
+        }),
+      );
+      const items: SyncOrdersStartedItem[] = [];
+      const failedItems: FailedAccount[] = [];
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") items.push(result.value);
+        else {
+          failedItems.push({
+            accountId: body.accountIds[index],
+            error: extractErrorMessage(result.reason),
+          });
+        }
+      });
+      return {items, failedItems};
+    },
     meta: {suppressGlobalError: true},
     onSuccess: (data) => {
       setStarted(data.items);
@@ -158,9 +192,15 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
 
   return (
     <Dialog open={open} onClose={() => void requestClose()} fullWidth maxWidth="sm">
-      <DialogTitle>Синхронизация заказов</DialogTitle>
+      <DialogTitle>{statusesOnly ? "Обновление статусов" : "Синхронизация заказов"}</DialogTitle>
       <LinearProgress sx={{visibility: busy ? "visible" : "hidden"}} />
       <DialogContent dividers>
+        {statusesOnly && !isRunningPhase && (
+          <Alert severity="info" sx={{mb: 2}}>
+            Будут обновлены статусы и загружены заказы и возвраты с площадок. Черновики FBS не
+            переводятся в работу.
+          </Alert>
+        )}
         {error && (
           <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>
             {error}
@@ -202,7 +242,7 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
             accounts={targets ?? []}
             selected={selected}
             onChange={setSelected}
-            renderExtra={(target) => <TargetWarning target={target} />}
+            renderExtra={(target) => <TargetWarning target={target} statusesOnly={statusesOnly} />}
           />
         )}
       </DialogContent>
@@ -217,7 +257,7 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
             startIcon={mutation.isPending ? <CircularProgress size={14} /> : undefined}
             onClick={() => mutation.mutate({body: {accountIds: [...selected]}})}
           >
-            Синхронизировать
+            {statusesOnly ? "Обновить статусы" : "Синхронизировать"}
           </Button>
         )}
       </DialogActions>
@@ -226,10 +266,18 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
 }
 
 /** Accounts with gaps stay selectable — a warning explains far more than a missing checkbox. */
-function TargetWarning({target}: {target: MarketplaceOrderSyncTargetDto}) {
+function TargetWarning({
+  target,
+  statusesOnly,
+}: {
+  target: MarketplaceOrderSyncTargetDto;
+  statusesOnly: boolean;
+}) {
   const warnings = [
-    target.mappedWarehouseCount === 0 ? "ни один склад не привязан" : null,
-    target.unmappedCardCount > 0 ? `${target.unmappedCardCount} карточек без привязки` : null,
+    !statusesOnly && target.mappedWarehouseCount === 0 ? "ни один склад не привязан" : null,
+    !statusesOnly && target.unmappedCardCount > 0
+      ? `${target.unmappedCardCount} карточек без привязки`
+      : null,
     target.credentialsUnreadable ? "ключ не читается" : null,
     target.isSyncRunning ? "уже идёт синхронизация" : null,
   ].filter((w): w is string => w !== null);
@@ -237,7 +285,7 @@ function TargetWarning({target}: {target: MarketplaceOrderSyncTargetDto}) {
   if (warnings.length === 0) return null;
 
   return (
-    <Tooltip title={`Будут пропуски: ${warnings.join(", ")}`}>
+    <Tooltip title={`${statusesOnly ? "Внимание" : "Будут пропуски"}: ${warnings.join(", ")}`}>
       <WarningAmberIcon color="warning" fontSize="small" />
     </Tooltip>
   );

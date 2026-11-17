@@ -1,4 +1,6 @@
 import {type DependencyList, type RefObject, useCallback, useEffect, useRef, useState} from "react";
+import {useLocation} from "react-router";
+import {useSyncedWithQueryAndStorageState} from "@/hooks/useSyncedWithQueryAndStorageState";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 
 // Compares deps against the last committed run instead of a "is this the first run" flag: StrictMode
@@ -46,13 +48,15 @@ export function usePaginatedParams<D extends object, I extends object = object>(
     (v) => (v === 1 ? null : String(v)),
   );
 
-  const [pageSize, setPageSize] = useSyncedWithQueryState(
+  const {pathname} = useLocation();
+  const [pageSize, setPageSize] = useSyncedWithQueryAndStorageState(
     pageSizeParam,
+    `table-page-size:${pathname}:${pageSizeParam}`,
     (q) => {
       const n = Number(q);
       return Number.isInteger(n) && n >= 1 ? n : defaultPageSize;
     },
-    (v) => (v === defaultPageSize ? null : String(v)),
+    (v) => String(v),
   );
 
   // Debounced params and page are stored together so they update atomically.

@@ -61,7 +61,14 @@ function OrdersFbsPage() {
         title="Заказы FBS"
         breadcrumbName="FBS"
         breadcrumbLink="/operations/orders/fbs"
-        headerActions={canSync ? <SyncOrdersButton /> : null}
+        headerActions={
+          canSync ? (
+            <>
+              <SyncOrdersButton statusesOnly />
+              <SyncOrdersButton />
+            </>
+          ) : null
+        }
         bulkActions={(orders) => {
           const rebindAction = canEdit ? rebind.getAction(orders) : null;
           return [

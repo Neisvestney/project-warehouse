@@ -1338,6 +1338,12 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 [`OptionCount`](#optioncount) on each marketplace, account and posting status — «Все» options stay without one),
 and `marketplaceOrderUtils` for the label and colour maps.
 
+`SyncOrdersButton` and `SyncOrdersDialog` share the account picker, progress and per-account results for both
+FBS header actions. The default mode imports orders; `statusesOnly` labels the action «Обновить статусы» and
+starts `OrdersBackground` for each selected account, preserving successful starts if another account fails.
+This mode also discovers orders and imports returns, but never confirms FBS drafts. Its picker warns about
+unreadable credentials and running syncs; catalog and warehouse mappings do not gate this background pass.
+
 `PostingNumberLabel` is the compact posting label for places with room for a single number, currently the
 `OrdersAssemblyPage` summary. Once the posting has a `labelBarcode` it shows the barcode — what the assembler
 scans off the label — as a `CopyableText`, and puts the posting number into an interactive tooltip as a second

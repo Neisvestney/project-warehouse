@@ -101,7 +101,14 @@ function PayoutsPostingsDialogContent({
   isMobile,
 }: Omit<PayoutsPostingsDialogProps, "target"> & {target: PostingsTarget; isMobile: boolean}) {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem("table-page-size:payouts-postings"));
+      return [10, 20, 50].includes(stored) ? stored : 50;
+    } catch {
+      return 50;
+    }
+  });
 
   const {
     data: postings,
@@ -168,6 +175,11 @@ function PayoutsPostingsDialogContent({
           onRowsPerPageChange={(size) => {
             setPageSize(size);
             setPage(1);
+            try {
+              localStorage.setItem("table-page-size:payouts-postings", String(size));
+            } catch {
+              // Pagination remains usable when browser storage is unavailable.
+            }
           }}
           disableFloatingPagination
         >
