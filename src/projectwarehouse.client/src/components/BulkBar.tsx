@@ -1,4 +1,4 @@
-import {useState, type MouseEvent, type ReactNode} from "react";
+import {useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode} from "react";
 import {
   Box,
   Button,
@@ -29,12 +29,9 @@ export interface BulkAction {
   /** Replaces the icon with a spinner. */
   pending?: boolean;
   disabled?: boolean;
-  /**
-   * Shown as a toolbar button; the rest go under «Ещё». Ignored on mobile, where everything is in the menu —
-   * except a single action with no buttons beside it, which is always a button.
-   */
+  /** Always a desktop button; other actions become buttons when space permits. */
   primary?: boolean;
-  /** Red styling in the menu, and on the button a lone action becomes. */
+  /** Red styling in the menu and on toolbar buttons. */
   danger?: boolean;
 }
 
@@ -53,9 +50,27 @@ interface BulkBarProps {
 
 const buttonSx = {color: "primary.main"};
 const dangerButtonSx = {color: "error.main"};
+const promotionSpace = 48;
+const retentionSpace = 16;
 
 function actionText(action: BulkAction) {
   return action.count != null ? `${action.label} (${action.count})` : action.label;
+}
+
+function BulkActionButton({action}: {action: BulkAction}) {
+  return (
+    <Button
+      size="small"
+      variant="contained"
+      color="inherit"
+      startIcon={action.pending ? <CircularProgress size={14} color="inherit" /> : action.icon}
+      disabled={action.disabled}
+      onClick={action.onClick}
+      sx={{...(action.danger ? dangerButtonSx : buttonSx), flexShrink: 0, whiteSpace: "nowrap"}}
+    >
+      {actionText(action)}
+    </Button>
+  );
 }
 
 function BulkBar({
@@ -71,6 +86,63 @@ function BulkBar({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [promotedKeys, setPromotedKeys] = useState<string[]>([]);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const selectionRef = useRef<HTMLDivElement>(null);
+  const measurementRef = useRef<HTMLDivElement>(null);
+  const infoMeasurementRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current;
+    const selection = selectionRef.current;
+    const measurement = measurementRef.current;
+    const infoMeasurement = infoMeasurementRef.current;
+    if (!toolbar || !selection || !measurement || isMobile) return;
+
+    const measure = () => {
+      const style = getComputedStyle(toolbar);
+      const gap = parseFloat(style.columnGap) || 0;
+      const available =
+        toolbar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const widths = Array.from(
+        measurement.children,
+        (child) => child.getBoundingClientRect().width,
+      );
+      let baseWidth = Math.max(
+        selection.getBoundingClientRect().width,
+        infoMeasurement?.getBoundingClientRect().width ?? 0,
+      );
+      const secondary: {key: string; width: number}[] = [];
+      actions.forEach((action, index) => {
+        if (action.primary) baseWidth += widths[index] + gap;
+        else secondary.push({key: action.key, width: widths[index] + gap});
+      });
+
+      setPromotedKeys((previous) => {
+        let required = baseWidth;
+        let visibleCount = 0;
+        for (let index = 0; index < secondary.length; index++) {
+          required += secondary[index].width;
+          const menuWidth = index < secondary.length - 1 ? widths[actions.length] + gap : 0;
+          const reserve = previous.includes(secondary[index].key) ? retentionSpace : promotionSpace;
+          if (required + menuWidth + reserve <= available) visibleCount = index + 1;
+        }
+        const next = secondary.slice(0, visibleCount).map((action) => action.key);
+        return next.length === previous.length &&
+          next.every((key, index) => key === previous[index])
+          ? previous
+          : next;
+      });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(toolbar);
+    observer.observe(selection);
+    observer.observe(measurement);
+    if (infoMeasurement) observer.observe(infoMeasurement);
+    return () => observer.disconnect();
+  });
 
   if (count === 0)
     return info ? (
@@ -79,8 +151,12 @@ function BulkBar({
       </TableInfoBar>
     ) : null;
 
-  let buttonActions = isMobile ? [] : actions.filter((a) => a.primary);
-  let menuActions = isMobile ? actions : actions.filter((a) => !a.primary);
+  let buttonActions = isMobile
+    ? []
+    : actions.filter((a) => a.primary || promotedKeys.includes(a.key));
+  let menuActions = isMobile
+    ? actions
+    : actions.filter((a) => !a.primary && !promotedKeys.includes(a.key));
   // a dropdown holding a single action and nothing beside it is just an extra click
   if (buttonActions.length === 0 && menuActions.length === 1) {
     buttonActions = menuActions;
@@ -94,6 +170,7 @@ function BulkBar({
 
   return (
     <Toolbar
+      ref={toolbarRef}
       variant="dense"
       sx={{
         position: "sticky",
@@ -105,8 +182,16 @@ function BulkBar({
         gap: 1,
       }}
     >
-      <Box sx={{flex: 1, minWidth: 0}}>
-        <Box sx={{display: "flex", alignItems: "center", gap: 1}}>
+      <Box sx={{flex: 1, minWidth: 0, overflow: "hidden"}}>
+        <Box
+          ref={selectionRef}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            width: isMobile ? undefined : "max-content",
+          }}
+        >
           <Typography variant="body2" noWrap>
             {pluralCount(count, countLabel)}
           </Typography>
@@ -126,18 +211,7 @@ function BulkBar({
         {info && <TableInfoBar stats={info} loading={infoLoading} compact />}
       </Box>
       {buttonActions.map((action) => (
-        <Button
-          key={action.key}
-          size="small"
-          variant="contained"
-          color="inherit"
-          startIcon={action.pending ? <CircularProgress size={14} color="inherit" /> : action.icon}
-          disabled={action.disabled}
-          onClick={action.onClick}
-          sx={action.danger ? dangerButtonSx : buttonSx}
-        >
-          {actionText(action)}
-        </Button>
+        <BulkActionButton key={action.key} action={action} />
       ))}
       {menuActions.length > 0 && (
         <>
@@ -154,7 +228,7 @@ function BulkBar({
             }
             disabled={menuActions.every((a) => a.disabled)}
             onClick={(e) => setMenuAnchor(e.currentTarget)}
-            sx={buttonSx}
+            sx={{...buttonSx, flexShrink: 0, whiteSpace: "nowrap"}}
           >
             {isMobile ? "Действия" : "Ещё"}
           </Button>
@@ -180,6 +254,40 @@ function BulkBar({
             ))}
           </Menu>
         </>
+      )}
+      {!isMobile && (
+        <Box
+          aria-hidden
+          inert
+          sx={{
+            position: "absolute",
+            visibility: "hidden",
+            width: 0,
+            height: 0,
+            overflow: "hidden",
+            pointerEvents: "none",
+          }}
+        >
+          <Box ref={measurementRef} sx={{display: "flex", width: "max-content"}}>
+            {actions.map((action) => (
+              <BulkActionButton key={action.key} action={action} />
+            ))}
+            <Button
+              size="small"
+              variant="contained"
+              color="inherit"
+              endIcon={<ArrowDropDownIcon />}
+              sx={{flexShrink: 0, whiteSpace: "nowrap"}}
+            >
+              Ещё
+            </Button>
+          </Box>
+          {info && (
+            <Box ref={infoMeasurementRef} sx={{width: "max-content"}}>
+              <TableInfoBar stats={info} loading={infoLoading} compact />
+            </Box>
+          )}
+        </Box>
       )}
     </Toolbar>
   );

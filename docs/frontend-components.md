@@ -508,11 +508,15 @@ pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-fres
 
 Actions arrive as data, `actions: BulkAction[]` — `{key, label, icon?, count?, onClick, pending?, disabled?,
 primary?, danger?}` — and the bar owns their markup. `onClick` receives the originating mouse event so an action
-can capture its screen position before the dropdown closes. `primary` actions become toolbar buttons, the rest go under
-an «Ещё» dropdown; below `sm` every action goes into a single «Действия» dropdown. A dropdown that would hold a
+can capture its screen position before the dropdown closes. `primary` actions always become desktop toolbar buttons.
+Other actions become buttons in their declared order while the row has enough room; the rest go under «Ещё».
+The bar reserves the larger of the selection label width and the full compact summary width, then measures
+buttons, gaps and dropdown, requiring 48 px of spare width to promote an
+action and 16 px to retain it. This hysteresis absorbs small changes in counter widths near the boundary.
+Below `sm` every action goes into a single «Действия» dropdown. A dropdown that would hold a
 single action with no button beside it is dropped and that action becomes a button, red when it is `danger`. `count` is appended to the
 label as `(N)`, `pending` swaps the icon for a spinner (the dropdown button spins while any of its items is
-pending and is disabled only when all of them are), `danger` paints the menu item red. With nothing selected
+pending and is disabled only when all of them are), `danger` paints the menu item and toolbar button red. With nothing selected
 the bar falls back to the list summary — `info: TableInfoStat[]` rendered as a [`TableInfoBar`](#tableinfobar),
 `infoLoading` while the list is fetching — and renders nothing if `info` is omitted too. The fallback keys off
 `count`, not `actions`: a selection that happens to offer no action keeps the selection band with its clear
@@ -522,6 +526,8 @@ something is selected and never needs a separate visibility flag.
 `infoActions` holds display controls such as `TableColumnsButton` at the right edge of the summary through
 `TableInfoBar.children`. These controls are hidden while rows are selected. The summary appears below the
 selected count inside the same selection band, with smaller `caption` text and no extra toolbar height.
+The left section clips its contents to its allocated width; a compact summary wider than the available space
+scrolls horizontally within that section.
 
 An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
 `getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).

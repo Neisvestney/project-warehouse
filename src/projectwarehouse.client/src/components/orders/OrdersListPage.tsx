@@ -503,7 +503,7 @@ function OrdersListPage({
           ...(canCreate ? [tagsAction.getAction(selectedItems.map((o) => o.id))] : []),
           summaryAction.getAction(selectedItems.map((o) => o.id)),
           assemblyCheckAction.getAction(selectedItems.map((o) => o.id)),
-        ]
+        ].toSorted((left, right) => Number(left.key === "cancel") - Number(right.key === "cancel"))
       : [];
   // чекбокс + сортируемые колонки + «Штук» + «Метки»
   const columnCount = sortColumns.length + 3 + (showNotes ? 1 : 0) + visibleExtraColumns.length;
