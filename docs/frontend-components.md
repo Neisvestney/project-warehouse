@@ -507,7 +507,8 @@ zero or omitted shows nothing. `onClear` drops the whole selection —
 pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems)'s `clear`.
 
 Actions arrive as data, `actions: BulkAction[]` — `{key, label, icon?, count?, onClick, pending?, disabled?,
-primary?, danger?}` — and the bar owns their markup. `primary` actions become toolbar buttons, the rest go under
+primary?, danger?}` — and the bar owns their markup. `onClick` receives the originating mouse event so an action
+can capture its screen position before the dropdown closes. `primary` actions become toolbar buttons, the rest go under
 an «Ещё» dropdown; below `sm` every action goes into a single «Действия» dropdown. A dropdown that would hold a
 single action with no button beside it is dropped and that action becomes a button, red when it is `danger`. `count` is appended to the
 label as `(N)`, `pending` swaps the icon for a spinner (the dropdown button spins while any of its items is
@@ -1230,12 +1231,19 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
   the row edits itself instead of joining the status-gated info form and calls `save(tagIds)` on every change; the
   page passes a mutation of `PATCH /{module}/{id}/tags` that writes the returned DTO into its cache.
 - **`TagChips`** — read-only chips, a dash when empty; used in table cells and in `DocumentTagsRow`.
-- **`BulkTagsDialog`** — the «Теги» bulk action's dialog: an «Добавить / Удалить» switch and one tag picked
-  through `DocumentTagsAutocomplete` (the latest pick replaces the previous one, so a new name can still be
-  created inline). It knows nothing about the endpoint — `onConfirm(tagId, operation)` goes to
-  `useBulkTagsAction`, which sends the module's `batch-update-tags` and keeps the dialog open with the error on
-  failure, since the batch is all or nothing.
-- **`useBulkTagsAction`** — the «Теги» bulk action in the `{getAction, dialogs}` shape. The module passes its
+- **`BulkTagsMenu`** — the «Метки» bulk action's anchored menu. «Добавить / Снять» opens a searchable tag list
+  inside the same popover, with a back item. Selecting a tag immediately applies it to the captured selection.
+  Search filters the module's full tag list locally. In add mode, a nonempty name without an exact
+  case-insensitive match offers «Создать и добавить»: creation updates the tag cache before applying the batch,
+  so a failed batch can be retried with the existing tag. Remove mode only offers existing tags.
+  The initial menu position centers it on the pointer; its top-left anchor stays fixed as the content grows,
+  subject to viewport margins. Keyboard activation
+  uses the action item's bottom-left corner as the anchor point.
+  Loading appears as an absolute overlay over the menu without taking up layout space.
+  Pending operations disable selection and dismissal; errors stay inside the menu, and success closes it
+  with a notification. The menu retains its content during exit and supports Back through `useBackClosable`.
+- **`useBulkTagsAction`** — the «Метки» bulk action in the `{getAction, dialogs}` shape; `dialogs` contains the menu.
+  The hook captures selected ids and the click position before the toolbar dropdown closes. The module passes its
   generated `…BatchUpdateTagsMutation()`, an `invalidate` callback, its noun and
   `notFound: {code, numbersArg?, formatNumber?}` — the 404 code and the arg that lists the blocking documents, which
   the hook turns into «Не найдены или недоступны для редактирования: …». Without `numbersArg` (catalog items have

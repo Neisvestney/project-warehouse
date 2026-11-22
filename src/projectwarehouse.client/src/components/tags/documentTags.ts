@@ -16,7 +16,7 @@ import {
 /** Document types whose tags are managed through their own module endpoints. */
 export type DocumentTagKind = "receipt" | "order" | "writeoff" | "stocktake";
 
-/** Kinds the shared tag picker and bulk tags dialog work with: the document kinds plus catalog items. */
+/** Kinds supported by the shared tag picker and bulk menu. */
 export type TagPickerKind = DocumentTagKind | "catalog";
 
 export type DocumentTag = {id: string; name: string};

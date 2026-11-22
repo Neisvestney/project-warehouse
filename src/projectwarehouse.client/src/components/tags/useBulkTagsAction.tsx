@@ -1,15 +1,15 @@
 import {useState} from "react";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import {enqueueSnackbar} from "notistack";
 import type {UseMutationOptions} from "@tanstack/react-query";
 import type {BatchUpdateTagsRequest, ErrorCode, TagBatchOperation} from "@/api/types.gen";
 import type {BulkAction} from "@/components/BulkBar";
-import BulkTagsDialog from "@/components/tags/BulkTagsDialog";
+import BulkTagsMenu, {type BulkTagsSelection} from "@/components/tags/BulkTagsMenu";
 import {useOperationMutation} from "@/hooks/useOperationMutation";
-import {useRetainedValue} from "@/hooks/useRetainedValue";
 import type {OperationScope} from "@/services/withOperationSpan";
 import {extractErrorMessage, isAppProblemDetails} from "@/utils/errorUtils";
 import {pluralCount, type PluralForms} from "@/utils/pluralUtils";
-import type {TagPickerKind} from "./documentTags";
+import type {DocumentTag, TagPickerKind} from "./documentTags";
 
 type BatchTagsVariables = {body: BatchUpdateTagsRequest} & Partial<OperationScope>;
 
@@ -25,7 +25,7 @@ interface BulkTagsActionOptions<TData, TError, TVariables extends BatchTagsVaria
   notFound: {code: ErrorCode; numbersArg?: string; formatNumber?: (n: number) => string};
 }
 
-/** Bulk «Метки» action for one module; `dialogs` must be rendered by the caller. */
+/** Bulk tag action; callers render the menu through `dialogs`. */
 export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVariables>({
   kind,
   entity,
@@ -34,10 +34,7 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
   noun,
   notFound,
 }: BulkTagsActionOptions<TData, TError, TVariables>) {
-  // captured on click, so the dialog changes what was selected when it opened
-  const [dialogIds, setDialogIds] = useState<string[] | null>(null);
-  // keeps the count on screen through the closing animation
-  const [shownIds] = useRetainedValue(dialogIds);
+  const [selection, setSelection] = useState<BulkTagsSelection | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Names the documents that blocked the batch; `count` also covers the ones the user cannot see.
@@ -66,7 +63,7 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
       ...mutationOptions,
       meta: {suppressGlobalError: true},
       onSuccess: async () => {
-        setDialogIds(null);
+        setSelection(null);
         await invalidate();
       },
       onError: (e) => setError(describeError(e)),
@@ -77,15 +74,22 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
     }),
   );
 
-  function handleConfirm(tagId: string, operation: TagBatchOperation) {
-    if (!dialogIds) return;
+  function handleConfirm(tag: DocumentTag, operation: TagBatchOperation) {
+    if (!selection || mutation.isPending) return;
     setError(null);
     // every module's generated variables are exactly `{body}` plus the optional request options
-    mutation.mutate({body: {ids: dialogIds, tagId, operation}} as TVariables);
+    mutation.mutate({body: {ids: selection.ids, tagId: tag.id, operation}} as TVariables, {
+      onSuccess: () =>
+        enqueueSnackbar(
+          `Метка «${tag.name}» ${operation === "add" ? "добавлена" : "снята"}: ${pluralCount(selection.ids.length, noun)}.`,
+          {variant: "success"},
+        ),
+    });
   }
 
   function handleClose() {
-    setDialogIds(null);
+    if (mutation.isPending) return;
+    setSelection(null);
     setError(null);
   }
 
@@ -97,16 +101,24 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
       count: ids.length,
       pending: mutation.isPending,
       disabled: ids.length === 0 || mutation.isPending,
-      onClick: () => setDialogIds(ids),
+      onClick: (event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        setError(null);
+        const position =
+          event.detail === 0
+            ? {top: rect.bottom, left: rect.left}
+            : {top: event.clientY, left: event.clientX};
+        setSelection({ids: [...ids], position});
+      },
     };
   }
 
   const dialogs = (
-    <BulkTagsDialog
+    <BulkTagsMenu
       kind={kind}
-      open={dialogIds != null}
+      selection={selection}
       isPending={mutation.isPending}
-      summary={`Будет затронуто: ${pluralCount(shownIds?.length ?? 0, noun)}.`}
+      summary={`Выбрано: ${pluralCount(selection?.ids.length ?? 0, noun)}.`}
       error={error}
       onClose={handleClose}
       onConfirm={handleConfirm}

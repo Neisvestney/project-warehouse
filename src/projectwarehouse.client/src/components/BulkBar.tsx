@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from "react";
+import {useState, type MouseEvent, type ReactNode} from "react";
 import {
   Box,
   Button,
@@ -25,7 +25,7 @@ export interface BulkAction {
   icon?: ReactNode;
   /** Appended to the label as "(N)"; omit when the action applies to the whole selection. */
   count?: number;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLElement>) => void;
   /** Replaces the icon with a spinner. */
   pending?: boolean;
   disabled?: boolean;
@@ -87,9 +87,9 @@ function BulkBar({
     menuActions = [];
   }
 
-  function handleMenuClick(action: BulkAction) {
+  function handleMenuClick(action: BulkAction, event: MouseEvent<HTMLElement>) {
     setMenuAnchor(null);
-    action.onClick();
+    action.onClick(event);
   }
 
   return (
@@ -163,7 +163,7 @@ function BulkBar({
               <MenuItem
                 key={action.key}
                 disabled={action.disabled}
-                onClick={() => handleMenuClick(action)}
+                onClick={(event) => handleMenuClick(action, event)}
                 sx={
                   action.danger
                     ? {color: "error.main", "& .MuiListItemIcon-root": {color: "inherit"}}
