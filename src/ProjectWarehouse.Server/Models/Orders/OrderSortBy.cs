@@ -9,4 +9,5 @@ public enum OrderSortBy
     WarehouseName = 4,
     AssembledAt = 5,
     ShippedAt = 6,
+    LabelFetchedAt = 7,
 }

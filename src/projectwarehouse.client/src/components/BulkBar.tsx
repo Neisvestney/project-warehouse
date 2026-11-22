@@ -48,6 +48,7 @@ interface BulkBarProps {
   /** Shown instead of the selection toolbar while no action applies, at the same height. */
   info?: TableInfoStat[];
   infoLoading?: boolean;
+  infoActions?: ReactNode;
 }
 
 const buttonSx = {color: "primary.main"};
@@ -69,12 +70,18 @@ function BulkBar({
   actions,
   info,
   infoLoading,
+  infoActions,
 }: BulkBarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
-  if (count === 0) return info ? <TableInfoBar stats={info} loading={infoLoading} /> : null;
+  if (count === 0)
+    return info ? (
+      <TableInfoBar stats={info} loading={infoLoading}>
+        {infoActions}
+      </TableInfoBar>
+    ) : null;
 
   let buttonActions = isMobile ? [] : actions.filter((a) => a.primary);
   let menuActions = isMobile ? actions : actions.filter((a) => !a.primary);

@@ -206,6 +206,57 @@ On a first load (`isFetching` with `count === 0`) both the row and the pill swap
 instead of flashing a `0–0 из 0`. A background refetch keeps the previous totals on screen and only disables the
 arrows, so an invalidation does not make the pagination blink.
 
+### `TableColumnsButton` / `useTableColumns`
+
+Use this pair for optional columns in any list table. `useTableColumns` accepts column descriptors with
+`key`, `label` and optional `defaultHidden`, preserving additional fields such as `render` or `align` in its
+result. Columns without `defaultHidden` are always visible; the checkbox menu controls only those with it.
+`TableColumnsButton` is a controlled icon button with a «Настроить столбцы» tooltip and accessible label;
+it renders nothing when its `columns` array is empty.
+
+Recipe:
+
+1. Declare descriptors outside the component, using unique, stable keys without commas. Mark opt-in columns
+   with `defaultHidden: true`.
+2. Call `useTableColumns(columns, {storageKey: "<list>.columns"})` in the list component. Choose a storage key
+   specific to the list. For multiple tables on one page, also give each hook its own `queryParam` (default:
+   `columns`). Keep the hook mounted for one list identity; remount it when changing that identity.
+3. Put `TableColumnsButton` at the right edge of the summary above the table through `BulkBar.infoActions`
+   (or `TableInfoBar.children` for a standalone summary), passing `optionalColumns`, `enabledColumns`
+   and `setEnabledColumns` as `columns`, `value` and `onChange`.
+4. Render headers and row cells from the same `visibleColumns` array, and include its length in loader,
+   empty-row and footer `colSpan` calculations. With sortable optional columns, pass only visible descriptors
+   to `useTableSort` so sorting falls back when a column is hidden.
+5. Keep column selection outside filter reset, filter counts and pagination dependencies: it changes the
+   view, not which records the API returns.
+
+```tsx
+import TableColumnsButton from "@/components/TableColumnsButton";
+import {useTableColumns} from "@/hooks/useTableColumns";
+
+const COLUMNS = [
+  {key: "number", label: "Номер"},
+  {key: "createdAt", label: "Создан", defaultHidden: true},
+];
+
+// Inside the list component:
+const {visibleColumns, optionalColumns, enabledColumns, setEnabledColumns} = useTableColumns(
+  COLUMNS,
+  {storageKey: "receipts.columns"},
+);
+
+<TableColumnsButton
+  columns={optionalColumns}
+  value={enabledColumns}
+  onChange={setEnabledColumns}
+/>;
+```
+
+The URL stores enabled optional keys as a comma-separated string. An explicit empty value means all optional
+columns are hidden; unknown keys are ignored. `useSyncedWithQueryAndStorageState` supplies persistence:
+the URL wins, while `localStorage` restores the selection on mount when the query param is absent. Browser
+storage failure leaves URL state usable. Visible columns retain their descriptor order.
+
 ### `LinkTableRow`
 
 A clickable list row that navigates to `to`. It is a `TableRow` with `hover`, `position: relative` and a
@@ -466,6 +517,9 @@ the bar falls back to the list summary — `info: TableInfoStat[]` rendered as a
 `count`, not `actions`: a selection that happens to offer no action keeps the selection band with its clear
 button rather than silently turning into the list summary. So a caller builds the action list only while
 something is selected and never needs a separate visibility flag.
+
+`infoActions` holds display controls such as `TableColumnsButton` at the right edge of the summary through
+`TableInfoBar.children`. These controls are shown only while no rows are selected.
 
 An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
 `getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).
@@ -1206,7 +1260,7 @@ with `-` (`?tags=a,b,-c`); a plain id list is the include-only case.
 
 The orders list is shared by every order type, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[]`,
-`extraColumns?: {key, label, render, align?, noWrap?}[]` (`noWrap` keeps a column such as the posting number on one line, header included), `marketplaceFilters?`, `supplyFilter?`, `defaultIncludeExternal?`, `showExternalFilter?`,
+`extraColumns?: {key, label, render, sortBy?, align?, noWrap?, defaultHidden?}[]` (`noWrap` keeps a column such as the posting number on one line, header included), `marketplaceFilters?`, `supplyFilter?`, `defaultIncludeExternal?`, `showExternalFilter?`,
 `hiddenColumns?: OrderSortBy[]`, `alwaysShownStatusDates?: OrderStatus[]`, `statusDateLabels?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
@@ -1225,6 +1279,18 @@ so a row selected long ago is re-checked against its current status instead of t
 checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an
 `extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded —
 as does dropping the notes column with `showNotes={false}` (the marketplace pages trade it for the posting number).
+
+Columns with `defaultHidden` use [`TableColumnsButton` / `useTableColumns`](#tablecolumnsbutton--usetablecolumns)
+in the summary bar's right-hand `infoActions` slot. The list uses the `columns` query param and
+`orders.<type>.columns` storage key. Only visible
+columns count towards the table's `colSpan`; display preferences are independent of filters and pagination.
+An extra column's `sortBy: OrderSortBy` enables server sorting through its header. Only visible extra columns
+are passed to `useTableSort`, so hiding the active sort column falls back to the default order.
+The FBS list offers «Дата получения стикера», showing the latest label fetch across the order's parcels in
+local date and time, or «—» when no fetch timestamp is available. Its header sorts by the same latest fetch
+timestamp across all matching orders, with missing dates last in either direction and the order id breaking ties.
+Label regeneration updates the timestamp;
+label cache cleanup clears it. `DateTimeText` shares the date/time presentation with `DateTimeTableCell`.
 
 Внешние заказы (`IsExternal`, см. [orders-specification.md](orders-specification.md#внешние-заказы)) скрыты из
 списка по умолчанию; их показ включают редко, поэтому тумблер — квадратный `ToggleButton` с одной иконкой `AltRoute` (заказ шёл в обход склада) и

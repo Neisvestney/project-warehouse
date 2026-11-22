@@ -2009,6 +2009,7 @@ export type MarketplaceOrderDetailsDto = {
    * Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.
    */
   labelBarcode?: null | string;
+  labelFetchedAt?: null | string;
   supply?: null | MarketplaceSupplyDto;
   statusSyncedAt: string;
 };
@@ -2065,6 +2066,7 @@ export type MarketplaceOrderDto = {
    * Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.
    */
   labelBarcode?: null | string;
+  labelFetchedAt?: null | string;
   supply?: null | MarketplaceSupplyDto;
   statusSyncedAt: string;
 };
@@ -2592,7 +2594,8 @@ export type OrderSortBy =
   | "plannedShipmentAt"
   | "warehouseName"
   | "assembledAt"
-  | "shippedAt";
+  | "shippedAt"
+  | "labelFetchedAt";
 
 export type OrderStatus = "draft" | "confirmed" | "assembly" | "assembled" | "shipped" | "canceled";
 

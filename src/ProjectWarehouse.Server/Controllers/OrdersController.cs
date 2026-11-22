@@ -522,6 +522,12 @@ public class OrdersController(
             OrderSortBy.WarehouseName    => baseQuery.Sort(o => o.Warehouse != null ? o.Warehouse.Name : null, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.AssembledAt      => baseQuery.Sort(o => o.AssembledAt, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.ShippedAt        => baseQuery.Sort(o => o.ShippedAt, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.LabelFetchedAt   => baseQuery
+                .OrderBy(o => o.MarketplaceOrder == null ||
+                    !o.MarketplaceOrder.Parcels.Any(p => p.LabelFetchedAt != null))
+                .ThenSort(o => o.MarketplaceOrder != null
+                    ? o.MarketplaceOrder.Parcels.Max(p => p.LabelFetchedAt)
+                    : null, sortOrder).ThenBy(o => o.Id),
             _                            => baseQuery.Sort(o => o.Number, sortOrder).ThenBy(o => o.Id),
         };
 

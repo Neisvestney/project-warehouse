@@ -90,6 +90,7 @@ that layer (the Docs Index above) before writing code.
 | A modal, drawer or any overlay | [frontend-state.md → Overlays](frontend-state.md#overlays) — `useBackClosable` / `useDrawerSearchParamsState`, `useRetainedValue` + `onExited` |
 | A confirmation dialog | [frontend-components.md → `ConfirmDialog`](frontend-components.md#confirmdialog) |
 | A list table with pagination | [frontend-state.md → `usePaginatedParams`](frontend-state.md#usepaginatedparamsdebouncedparams-debounceddeps-immediateparams-immediatedeps-options), [frontend-components.md → `DataTableContainer`, `LinkTableRow`, `TableRowLoader`](frontend-components.md#layout--tables) |
+| Optional table columns with a saved display preference | [frontend-components.md → `TableColumnsButton` / `useTableColumns`](frontend-components.md#tablecolumnsbutton--usetablecolumns) |
 | A table that must work on a phone | [frontend.md → Таблицы на узких экранах](frontend.md#таблицы-на-узких-экранах) |
 | Status tabs with counts on a document list | [frontend-components.md → `StatusTabs`](frontend-components.md#statustabs), [backend-patterns.md → `PaginatedWithMeta`](backend-patterns.md#paginatedwithmetat-tmeta) |
 | Filters or any state kept in the URL | [frontend-state.md → URL State Hooks](frontend-state.md#url-state-hooks), [frontend-components.md → `FiltersBar`](frontend-components.md#filtersbar) |

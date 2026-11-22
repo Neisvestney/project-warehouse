@@ -30,6 +30,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+import {useTableColumns, type TableColumnOption} from "@/hooks/useTableColumns";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -39,6 +40,7 @@ import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
+import TableColumnsButton from "@/components/TableColumnsButton";
 import SelectionTableCell from "@/components/SelectionTableCell";
 import BulkBar, {type BulkAction} from "@/components/BulkBar";
 import type {TableInfoStat} from "@/components/TableInfoBar";
@@ -116,10 +118,9 @@ const ACTIVE_STATUSES: OrderStatus[] = ["draft", "confirmed", "assembly", "assem
 type OrderStatusTab = OrderStatus | "active" | "";
 const STATUS_TAB_LABELS = {...ORDER_STATUS_LABELS, active: "Активные"};
 
-export interface OrdersListExtraColumn {
-  key: string;
-  label: string;
+export interface OrdersListExtraColumn extends TableColumnOption {
   render: (order: OrderSummaryDto) => ReactNode;
+  sortBy?: OrderSortBy;
   align?: TableCellProps["align"];
   /** Keeps the header and the cells on one line. */
   noWrap?: boolean;
@@ -159,6 +160,7 @@ interface OrdersListPageProps {
 }
 
 const EMPTY_HIDDEN_COLUMNS: OrderSortBy[] = [];
+const EMPTY_EXTRA_COLUMNS: OrdersListExtraColumn[] = [];
 const EMPTY_STATUS_DATES: OrderStatus[] = [];
 const EMPTY_STATUS_DATE_LABELS: Partial<Record<OrderStatus, string>> = {};
 
@@ -172,7 +174,7 @@ function OrdersListPage({
   createLink,
   headerActions,
   bulkActions,
-  extraColumns,
+  extraColumns = EMPTY_EXTRA_COLUMNS,
   marketplaceFilters,
   supplyFilter,
   defaultIncludeExternal = false,
@@ -184,6 +186,12 @@ function OrdersListPage({
   defaultPageSize,
 }: OrdersListPageProps) {
   const queryClient = useQueryClient();
+  const {
+    visibleColumns: visibleExtraColumns,
+    optionalColumns,
+    enabledColumns,
+    setEnabledColumns,
+  } = useTableColumns(extraColumns, {storageKey: `orders.${type}.columns`});
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canSelfAssign = useHasPermission("orders.self_assign");
   const statuses = ALL_STATUSES;
@@ -291,9 +299,14 @@ function OrdersListPage({
     .filter((c) => c !== undefined);
   const sortColumns = [...SORT_COLUMNS.filter((c) => !isHidden(c.key)), ...statusDateColumns];
 
-  const {sortBy, sortOrder, handleSortClick} = useTableSort(sortColumns, "number", {
-    defaultSortOrder: "desc",
-  });
+  const extraSortColumns = visibleExtraColumns.flatMap((column) =>
+    column.sortBy ? [{key: column.sortBy, label: column.label}] : [],
+  );
+  const {sortBy, sortOrder, handleSortClick} = useTableSort(
+    [...sortColumns, ...extraSortColumns],
+    "number",
+    {defaultSortOrder: "desc"},
+  );
 
   // searchString is already debounced by the search field, so it goes with the immediate params
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
@@ -493,7 +506,7 @@ function OrdersListPage({
         ]
       : [];
   // чекбокс + сортируемые колонки + «Штук» + «Метки»
-  const columnCount = sortColumns.length + 3 + (showNotes ? 1 : 0) + (extraColumns?.length ?? 0);
+  const columnCount = sortColumns.length + 3 + (showNotes ? 1 : 0) + visibleExtraColumns.length;
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -683,6 +696,13 @@ function OrdersListPage({
         actions={selectionActions}
         info={listStats}
         infoLoading={isFetching}
+        infoActions={
+          <TableColumnsButton
+            columns={optionalColumns}
+            value={enabledColumns}
+            onChange={setEnabledColumns}
+          />
+        }
       />
       {tagsAction.dialogs}
       {assignAction.dialogs}
@@ -776,9 +796,24 @@ function OrdersListPage({
                   </TableSortLabel>
                 </TableCell>
               ))}
-              {extraColumns?.map(({key, label, align, noWrap}) => (
-                <TableCell key={key} align={align} sx={noWrap ? {whiteSpace: "nowrap"} : undefined}>
-                  {label}
+              {visibleExtraColumns.map(({key, label, align, noWrap, sortBy: columnSortBy}) => (
+                <TableCell
+                  key={key}
+                  align={align}
+                  sx={noWrap ? {whiteSpace: "nowrap"} : undefined}
+                  sortDirection={columnSortBy && sortBy === columnSortBy ? sortOrder : false}
+                >
+                  {columnSortBy ? (
+                    <TableSortLabel
+                      active={sortBy === columnSortBy}
+                      direction={sortBy === columnSortBy ? sortOrder : "asc"}
+                      onClick={() => handleSortClick(columnSortBy)}
+                    >
+                      {label}
+                    </TableSortLabel>
+                  ) : (
+                    label
+                  )}
                 </TableCell>
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
@@ -837,7 +872,7 @@ function OrdersListPage({
                   {statusDateColumns.map((column) => (
                     <DateTimeTableCell key={column.key} value={column.get(order)} />
                   ))}
-                  {extraColumns?.map(({key, render, align, noWrap}) => (
+                  {visibleExtraColumns.map(({key, render, align, noWrap}) => (
                     <TableCell
                       key={key}
                       align={align}

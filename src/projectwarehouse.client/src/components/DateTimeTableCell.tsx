@@ -5,11 +5,11 @@ interface DateTimeTableCellProps extends Omit<TableCellProps, "children"> {
 }
 
 /** Date on the first line, time under it, with tightened line heights so the row barely grows. */
-function DateTimeTableCell({value, sx, ...props}: DateTimeTableCellProps) {
+export function DateTimeText({value}: Pick<DateTimeTableCellProps, "value">) {
   const date = value ? new Date(value) : null;
 
   return (
-    <TableCell sx={{whiteSpace: "nowrap", py: 0.25, ...sx}} {...props}>
+    <>
       {date ? (
         <>
           <Typography variant="body2" sx={{lineHeight: 1.25}}>
@@ -26,6 +26,14 @@ function DateTimeTableCell({value, sx, ...props}: DateTimeTableCellProps) {
       ) : (
         "—"
       )}
+    </>
+  );
+}
+
+function DateTimeTableCell({value, sx, ...props}: DateTimeTableCellProps) {
+  return (
+    <TableCell sx={{whiteSpace: "nowrap", py: 0.25, ...sx}} {...props}>
+      <DateTimeText value={value} />
     </TableCell>
   );
 }

@@ -10,6 +10,7 @@ import MarketplaceSupplyLabel from "@/components/orders/marketplace/MarketplaceS
 import {useSupplyFilterState} from "@/components/orders/marketplace/useSupplyFilterState";
 import type {OrderSummaryDto} from "@/api/types.gen";
 import {Typography} from "@mui/material";
+import {DateTimeText} from "@/components/DateTimeTableCell";
 
 function SupplyCell({order}: {order: OrderSummaryDto}) {
   const [, setSupplyId] = useSupplyFilterState();
@@ -18,6 +19,14 @@ function SupplyCell({order}: {order: OrderSummaryDto}) {
 }
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
+  {
+    key: "labelFetchedAt",
+    label: "Дата получения стикера",
+    sortBy: "labelFetchedAt",
+    defaultHidden: true,
+    noWrap: true,
+    render: (order) => <DateTimeText value={order.marketplaceOrder?.labelFetchedAt} />,
+  },
   {
     key: "marketplaceStatus",
     label: "Статус на площадке",

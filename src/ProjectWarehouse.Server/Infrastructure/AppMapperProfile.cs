@@ -331,7 +331,8 @@ public class AppMapperProfile : Profile
 
         CreateMap<MarketplaceOrder, MarketplaceOrderDto>()
             .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
-            .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
+            .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type))
+            .ForMember(d => d.LabelFetchedAt, opt => opt.MapFrom(s => s.Parcels.Max(p => p.LabelFetchedAt)));
 
         CreateMap<MarketplaceSupply, MarketplaceSupplyDto>()
             .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
