@@ -12,9 +12,11 @@ const CLOSE_DELAY_MS = 150;
 
 interface OrderCompositionPreviewProps {
   order: OrderSummaryDto;
+  variant?: "quantity" | "composition";
 }
 
-function OrderCompositionPreview({order}: OrderCompositionPreviewProps) {
+function OrderCompositionPreview({order, variant = "quantity"}: OrderCompositionPreviewProps) {
+  const canPreview = variant === "quantity" || order.positionCount > 1;
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [requested, setRequested] = useState(false);
   const openTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -24,7 +26,7 @@ function OrderCompositionPreview({order}: OrderCompositionPreviewProps) {
     ...ordersGetCompositionPreviewOptions({path: {id: order.id}}),
     // the preview is a read-only snapshot, so a minute of staleness beats refetching on every hover
     staleTime: 60_000,
-    enabled: requested,
+    enabled: requested && canPreview,
   });
 
   useEffect(
@@ -54,6 +56,13 @@ function OrderCompositionPreview({order}: OrderCompositionPreviewProps) {
   }
 
   if (!order.boxCount) return <>—</>;
+  if (!canPreview) {
+    return (
+      <Typography variant="body2" sx={{maxWidth: 320}}>
+        {order.singlePositionName ?? "—"}
+      </Typography>
+    );
+  }
 
   const boxes = data?.boxes ?? [];
   const showBoxLabels = (data?.boxCount ?? 0) > 1;
@@ -63,7 +72,15 @@ function OrderCompositionPreview({order}: OrderCompositionPreviewProps) {
       <Chip
         variant="outlined"
         size="small"
-        label={order.componentCount}
+        label={
+          variant === "composition"
+            ? order.positionCount === 1
+              ? order.singlePositionName
+              : order.positionCount
+                ? "Несколько"
+                : "—"
+            : order.componentCount
+        }
         tabIndex={0}
         aria-label={`Состав заказа, ${order.componentCount.toLocaleString("ru-RU")} шт`}
         onMouseEnter={(e) => scheduleOpen(e.currentTarget)}
@@ -72,7 +89,19 @@ function OrderCompositionPreview({order}: OrderCompositionPreviewProps) {
         onBlur={scheduleClose}
         onKeyDown={(e) => e.key === "Escape" && setAnchorEl(null)}
         // the row-wide link overlay sits underneath and would swallow the hover otherwise
-        sx={{position: "relative", zIndex: 1, cursor: "help"}}
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          cursor: "help",
+          ...(variant === "composition"
+            ? {
+                height: "auto",
+                maxWidth: 320,
+                border: 0,
+                "& .MuiChip-label": {whiteSpace: "normal", py: 0.5},
+              }
+            : {}),
+        }}
       />
       <Popover
         open={Boolean(anchorEl)}

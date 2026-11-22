@@ -2595,7 +2595,20 @@ export type OrderSortBy =
   | "warehouseName"
   | "assembledAt"
   | "shippedAt"
-  | "labelFetchedAt";
+  | "labelFetchedAt"
+  | "positionCount"
+  | "composition"
+  | "marketplaceType"
+  | "marketplaceAccountName"
+  | "shipmentDate"
+  | "statusSyncedAt"
+  | "returnState"
+  | "cancelReason"
+  | "notes"
+  | "marketplaceStatus"
+  | "postingNumber"
+  | "supply"
+  | "componentCount";
 
 export type OrderStatus = "draft" | "confirmed" | "assembly" | "assembled" | "shipped" | "canceled";
 
@@ -2622,6 +2635,8 @@ export type OrderSummaryDto = {
   createdByName?: null | string;
   boxCount: number;
   componentCount: number;
+  positionCount: number;
+  singlePositionName?: null | string;
   tags: Array<OrderTagDto>;
   marketplaceOrder?: null | MarketplaceOrderDto;
 };

@@ -23,6 +23,8 @@ public class OrderSummaryDto
     public string? CreatedByName { get; init; }
     public int BoxCount { get; init; }
     public int ComponentCount { get; init; }
+    public int PositionCount { get; init; }
+    public string? SinglePositionName { get; init; }
     public IReadOnlyList<OrderTagDto> Tags { get; init; } = [];
 
     /// <summary>Null for Direct orders. The FBS table shows the marketplace status from here.</summary>

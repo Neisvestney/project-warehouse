@@ -210,14 +210,15 @@ arrows, so an invalidation does not make the pagination blink.
 
 Use this pair for optional columns in any list table. `useTableColumns` accepts column descriptors with
 `key`, `label` and optional `defaultHidden`, preserving additional fields such as `render` or `align` in its
-result. Columns without `defaultHidden` are always visible; the checkbox menu controls only those with it.
+result. Columns without `defaultHidden` are always visible; `false` makes a column optional and initially
+visible, while `true` makes it optional and initially hidden.
 `TableColumnsButton` is a controlled icon button with a «Настроить столбцы» tooltip and accessible label;
 it renders nothing when its `columns` array is empty.
 
 Recipe:
 
 1. Declare descriptors outside the component, using unique, stable keys without commas. Mark opt-in columns
-   with `defaultHidden: true`.
+   with `defaultHidden: true`; use `false` for optional columns shown by default.
 2. Call `useTableColumns(columns, {storageKey: "<list>.columns"})` in the list component. Choose a storage key
    specific to the list. For multiple tables on one page, also give each hook its own `queryParam` (default:
    `columns`). Keep the hook mounted for one list identity; remount it when changing that identity.
@@ -252,8 +253,11 @@ const {visibleColumns, optionalColumns, enabledColumns, setEnabledColumns} = use
 />;
 ```
 
-The URL stores enabled optional keys as a comma-separated string. An explicit empty value means all optional
-columns are hidden; unknown keys are ignored. `useSyncedWithQueryAndStorageState` supplies persistence:
+The URL stores enabled optional keys as a comma-separated string. Lists with initially visible optional
+columns include `_configured` to distinguish an explicit selection from legacy selections that only contain
+opt-in keys. Legacy selections retain initially visible columns; `_configured` alone hides every optional
+column. Lists with only opt-in columns use an empty value to hide them all. Unknown keys are ignored.
+`useSyncedWithQueryAndStorageState` supplies persistence:
 the URL wins, while `localStorage` restores the selection on mount when the query param is absent. Browser
 storage failure leaves URL state usable. Visible columns retain their descriptor order.
 
@@ -1371,6 +1375,13 @@ before the account list arrives, the Select renders a temporary «Загрузк
 empty value would show a filter the URL and the request do not agree with.
 
 ### `OrderCompositionPreview`
+
+В FBS столбец «Состав» использует вариант `composition`: название единственной уникальной позиции каталога
+или «Несколько», если позиций несколько. Повторения одной позиции в разных коробках считаются одной
+позицией. Название приходит в ответе списка и показывается без всплывающей подсказки. Наведение на
+«Несколько» открывает тот же поповер, что и в столбце «Штук».
+Новые столбцы FBS скрыты по умолчанию, а существующие доступны для отключения с сохранением выбора.
+Даты сборки и отгрузки также автоматически показываются на соответствующих статусных вкладках.
 
 Колонка «Штук» в списке заказов — это не просто чип с числом, а точка входа в состав заказа.
 `OrderCompositionPreview` рисует тот же чип (`order.componentCount`, прочерк при `boxCount === 0`) и по ховеру с

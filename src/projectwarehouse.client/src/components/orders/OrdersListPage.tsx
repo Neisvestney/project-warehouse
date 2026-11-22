@@ -164,6 +164,15 @@ const EMPTY_EXTRA_COLUMNS: OrdersListExtraColumn[] = [];
 const EMPTY_STATUS_DATES: OrderStatus[] = [];
 const EMPTY_STATUS_DATE_LABELS: Partial<Record<OrderStatus, string>> = {};
 
+const FBS_BASE_COLUMNS: TableColumnOption[] = [
+  ...SORT_COLUMNS.filter((c) => c.key !== "number" && c.key !== "status").map((c) => ({
+    ...c,
+    defaultHidden: false,
+  })),
+  {key: "quantity", label: "Штук", defaultHidden: false},
+  {key: "tags", label: "Метки", defaultHidden: false},
+];
+
 const getOrderId = (order: OrderSummaryDto) => order.id;
 
 function OrdersListPage({
@@ -186,12 +195,6 @@ function OrdersListPage({
   defaultPageSize,
 }: OrdersListPageProps) {
   const queryClient = useQueryClient();
-  const {
-    visibleColumns: visibleExtraColumns,
-    optionalColumns,
-    enabledColumns,
-    setEnabledColumns,
-  } = useTableColumns(extraColumns, {storageKey: `orders.${type}.columns`});
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canSelfAssign = useHasPermission("orders.self_assign");
   const statuses = ALL_STATUSES;
@@ -229,6 +232,25 @@ function OrdersListPage({
     "status",
     (q) => (q === "all" ? "" : statuses.includes(q as OrderStatus) ? (q as OrderStatus) : "active"),
     (v) => (v === "active" ? null : v || "all"),
+  );
+  const {visibleColumns, optionalColumns, enabledColumns, setEnabledColumns} =
+    useTableColumns<TableColumnOption>(
+      type === "fbs"
+        ? [
+            ...FBS_BASE_COLUMNS,
+            ...extraColumns.map((column) =>
+              column.key === STATUS_DATE_COLUMNS[status as OrderStatus]?.key
+                ? {...column, defaultHidden: false}
+                : column,
+            ),
+          ]
+        : extraColumns,
+      {storageKey: `orders.${type}.columns`},
+    );
+  const isColumnVisible = (key: string) =>
+    type !== "fbs" || visibleColumns.some((c) => c.key === key);
+  const visibleExtraColumns = extraColumns.filter((column) =>
+    visibleColumns.some((c) => c.key === column.key),
   );
 
   const [marketplaceType, setMarketplaceType] = useSyncedWithQueryState<MarketplaceType | "">(
@@ -296,14 +318,30 @@ function OrdersListPage({
       const label = statusDateLabels[s];
       return column && label ? {...column, label} : column;
     })
-    .filter((c) => c !== undefined);
-  const sortColumns = [...SORT_COLUMNS.filter((c) => !isHidden(c.key)), ...statusDateColumns];
+    .filter((c) => c !== undefined)
+    .filter(
+      (c) =>
+        !(type === "fbs" ? extraColumns : visibleExtraColumns).some((extra) => extra.key === c.key),
+    );
+  const sortColumns = [
+    ...SORT_COLUMNS.filter(
+      (c) =>
+        !isHidden(c.key) && (c.key === "number" || c.key === "status" || isColumnVisible(c.key)),
+    ),
+    ...statusDateColumns,
+  ];
 
   const extraSortColumns = visibleExtraColumns.flatMap((column) =>
     column.sortBy ? [{key: column.sortBy, label: column.label}] : [],
   );
   const {sortBy, sortOrder, handleSortClick} = useTableSort(
-    [...sortColumns, ...extraSortColumns],
+    [
+      ...sortColumns,
+      ...extraSortColumns,
+      ...(type === "fbs" && isColumnVisible("quantity")
+        ? [{key: "componentCount" as const, label: "Штук"}]
+        : []),
+    ],
     "number",
     {defaultSortOrder: "desc"},
   );
@@ -506,7 +544,13 @@ function OrdersListPage({
         ].toSorted((left, right) => Number(left.key === "cancel") - Number(right.key === "cancel"))
       : [];
   // чекбокс + сортируемые колонки + «Штук» + «Метки»
-  const columnCount = sortColumns.length + 3 + (showNotes ? 1 : 0) + visibleExtraColumns.length;
+  const columnCount =
+    sortColumns.length +
+    1 +
+    Number(isColumnVisible("quantity")) +
+    Number(isColumnVisible("tags")) +
+    (showNotes ? 1 : 0) +
+    visibleExtraColumns.length;
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -817,8 +861,22 @@ function OrdersListPage({
                 </TableCell>
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
-              <TableCell>Штук</TableCell>
-              <TableCell>Метки</TableCell>
+              {isColumnVisible("quantity") && (
+                <TableCell sortDirection={sortBy === "componentCount" ? sortOrder : false}>
+                  {type === "fbs" ? (
+                    <TableSortLabel
+                      active={sortBy === "componentCount"}
+                      direction={sortBy === "componentCount" ? sortOrder : "asc"}
+                      onClick={() => handleSortClick("componentCount")}
+                    >
+                      Штук
+                    </TableSortLabel>
+                  ) : (
+                    "Штук"
+                  )}
+                </TableCell>
+              )}
+              {isColumnVisible("tags") && <TableCell>Метки</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -862,13 +920,15 @@ function OrdersListPage({
                       </Stack>
                     </TableCell>
                   )}
-                  {!isHidden("warehouseName") && (
+                  {!isHidden("warehouseName") && isColumnVisible("warehouseName") && (
                     <TableCell>{order.warehouseName ?? "—"}</TableCell>
                   )}
-                  {!isHidden("plannedShipmentAt") && (
+                  {!isHidden("plannedShipmentAt") && isColumnVisible("plannedShipmentAt") && (
                     <DateTimeTableCell value={order.plannedShipmentAt} />
                   )}
-                  {!isHidden("createdAt") && <DateTimeTableCell value={order.createdAt} />}
+                  {!isHidden("createdAt") && isColumnVisible("createdAt") && (
+                    <DateTimeTableCell value={order.createdAt} />
+                  )}
                   {statusDateColumns.map((column) => (
                     <DateTimeTableCell key={column.key} value={column.get(order)} />
                   ))}
@@ -884,12 +944,16 @@ function OrdersListPage({
                   {showNotes && (
                     <NotesTableCell notes={order.notes} sx={{position: "relative", zIndex: 1}} />
                   )}
-                  <TableCell>
-                    <OrderCompositionPreview order={order} />
-                  </TableCell>
-                  <TableCell>
-                    <TagChips tags={order.tags} />
-                  </TableCell>
+                  {isColumnVisible("quantity") && (
+                    <TableCell>
+                      <OrderCompositionPreview order={order} />
+                    </TableCell>
+                  )}
+                  {isColumnVisible("tags") && (
+                    <TableCell>
+                      <TagChips tags={order.tags} />
+                    </TableCell>
+                  )}
                 </LinkTableRow>
               ))
             )}

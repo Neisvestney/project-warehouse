@@ -23,11 +23,14 @@ export function useTableSort<TSortBy extends string>(
   const sortByParam = options?.sortByParam ?? "sortBy";
   const sortOrderParam = options?.sortOrderParam ?? "sortOrder";
 
-  const [sortBy, setSortBy] = useSyncedWithQueryState<TSortBy>(
+  const [requestedSortBy, setSortBy] = useSyncedWithQueryState<string | null>(
     sortByParam,
-    (q) => (q && columns.some((c) => c.key === q) ? (q as TSortBy) : defaultSortBy),
+    (q) => q,
     (v) => (v === defaultSortBy ? null : v),
   );
+  const sortBy = columns.some((c) => c.key === requestedSortBy)
+    ? (requestedSortBy as TSortBy)
+    : defaultSortBy;
 
   const [sortOrder, setSortOrder] = useSyncedWithQueryState<SortOrder>(
     sortOrderParam,

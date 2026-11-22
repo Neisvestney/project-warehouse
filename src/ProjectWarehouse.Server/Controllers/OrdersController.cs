@@ -522,6 +522,33 @@ public class OrdersController(
             OrderSortBy.WarehouseName    => baseQuery.Sort(o => o.Warehouse != null ? o.Warehouse.Name : null, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.AssembledAt      => baseQuery.Sort(o => o.AssembledAt, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.ShippedAt        => baseQuery.Sort(o => o.ShippedAt, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.PositionCount    => baseQuery.Sort(o => o.Boxes.SelectMany(b => b.Components)
+                .Select(c => c.CatalogItemId).Distinct().Count(), sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.Composition => baseQuery.Sort(o => o.Boxes.SelectMany(b => b.Components)
+                .Select(c => c.CatalogItemId).Distinct().Count() == 1
+                    ? o.Boxes.SelectMany(b => b.Components).Select(c => c.CatalogItem.FullName).FirstOrDefault()
+                    : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.ComponentCount   => baseQuery.Sort(o => o.Boxes.SelectMany(b => b.Components)
+                .Sum(c => c.Quantity), sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.MarketplaceType  => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? (MarketplaceType?)o.MarketplaceOrder.MarketplaceAccount.Type : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.MarketplaceAccountName => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? o.MarketplaceOrder.MarketplaceAccount.Name : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.ShipmentDate     => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? o.MarketplaceOrder.ShipmentDate : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.StatusSyncedAt   => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? (DateTime?)o.MarketplaceOrder.StatusSyncedAt : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.ReturnState      => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? (MarketplaceOrderReturnState?)o.MarketplaceOrder.ReturnState : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.CancelReason     => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? o.MarketplaceOrder.CancelReason : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.Notes            => baseQuery.Sort(o => o.Notes, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.MarketplaceStatus => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? (MarketplaceOrderStatus?)o.MarketplaceOrder.Status : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.PostingNumber    => baseQuery.Sort(o => o.MarketplaceOrder != null
+                ? o.MarketplaceOrder.PostingNumber : null, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.Supply           => baseQuery.Sort(o => o.MarketplaceOrder != null && o.MarketplaceOrder.Supply != null
+                ? o.MarketplaceOrder.Supply.ExternalId : null, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.LabelFetchedAt   => baseQuery
                 .OrderBy(o => o.MarketplaceOrder == null ||
                     !o.MarketplaceOrder.Parcels.Any(p => p.LabelFetchedAt != null))
