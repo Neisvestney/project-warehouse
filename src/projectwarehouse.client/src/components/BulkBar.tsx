@@ -91,6 +91,7 @@ function BulkBar({
   const selectionRef = useRef<HTMLDivElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const infoMeasurementRef = useRef<HTMLDivElement>(null);
+  if (count === 0 && menuAnchor !== null) setMenuAnchor(null);
 
   useLayoutEffect(() => {
     const toolbar = toolbarRef.current;
@@ -144,12 +145,7 @@ function BulkBar({
     return () => observer.disconnect();
   });
 
-  if (count === 0)
-    return info ? (
-      <TableInfoBar stats={info} loading={infoLoading}>
-        {infoActions}
-      </TableInfoBar>
-    ) : null;
+  if (count === 0 && !info) return null;
 
   let buttonActions = isMobile
     ? []
@@ -169,127 +165,161 @@ function BulkBar({
   }
 
   return (
-    <Toolbar
-      ref={toolbarRef}
-      variant="dense"
+    <Box
       sx={{
-        position: "sticky",
-        top: 6,
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr)",
+        position: count > 0 ? "sticky" : "relative",
+        top: count > 0 ? 6 : undefined,
         zIndex: theme.zIndex.appBar - 2,
-        bgcolor: "primary.main",
-        color: "primary.contrastText",
-        borderRadius: 1,
-        gap: 1,
       }}
     >
-      <Box sx={{flex: 1, minWidth: 0, overflow: "hidden"}}>
+      {info && (
         <Box
-          ref={selectionRef}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            width: isMobile ? undefined : "max-content",
-          }}
+          aria-hidden={count > 0}
+          inert={count > 0}
+          sx={{gridArea: "1 / 1", display: "grid", visibility: count > 0 ? "hidden" : "visible"}}
         >
-          <Typography variant="body2" noWrap>
-            {pluralCount(count, countLabel)}
-          </Typography>
-          {!!hiddenCount && (
-            <Tooltip title="Выбраны, но скрыты текущими фильтрами — действия их тоже затронут">
-              <Typography variant="body2" sx={{opacity: 0.8, whiteSpace: "nowrap"}}>
-                (скрыто: {hiddenCount.toLocaleString("ru-RU")})
-              </Typography>
-            </Tooltip>
-          )}
-          <Tooltip title="Очистить выбранное">
-            <IconButton size="small" color="inherit" onClick={onClear} sx={{p: 0.5}}>
-              <ClearIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <TableInfoBar stats={info} loading={infoLoading}>
+            {infoActions}
+          </TableInfoBar>
         </Box>
-        {info && <TableInfoBar stats={info} loading={infoLoading} compact />}
-      </Box>
-      {buttonActions.map((action) => (
-        <BulkActionButton key={action.key} action={action} />
-      ))}
-      {menuActions.length > 0 && (
-        <>
-          <Button
-            size="small"
-            variant="contained"
-            color="inherit"
-            endIcon={
-              menuActions.some((a) => a.pending) ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <ArrowDropDownIcon />
-              )
-            }
-            disabled={menuActions.every((a) => a.disabled)}
-            onClick={(e) => setMenuAnchor(e.currentTarget)}
-            sx={{...buttonSx, flexShrink: 0, whiteSpace: "nowrap"}}
-          >
-            {isMobile ? "Действия" : "Ещё"}
-          </Button>
-          <Menu anchorEl={menuAnchor} open={menuAnchor != null} onClose={() => setMenuAnchor(null)}>
-            {menuActions.map((action) => (
-              <MenuItem
-                key={action.key}
-                disabled={action.disabled}
-                onClick={(event) => handleMenuClick(action, event)}
-                sx={
-                  action.danger
-                    ? {color: "error.main", "& .MuiListItemIcon-root": {color: "inherit"}}
-                    : undefined
-                }
-              >
-                {(action.icon || action.pending) && (
-                  <ListItemIcon>
-                    {action.pending ? <CircularProgress size={18} color="inherit" /> : action.icon}
-                  </ListItemIcon>
-                )}
-                <ListItemText>{actionText(action)}</ListItemText>
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
       )}
-      {!isMobile && (
-        <Box
-          aria-hidden
-          inert
-          sx={{
-            position: "absolute",
-            visibility: "hidden",
-            width: 0,
-            height: 0,
-            overflow: "hidden",
-            pointerEvents: "none",
-          }}
-        >
-          <Box ref={measurementRef} sx={{display: "flex", width: "max-content"}}>
-            {actions.map((action) => (
-              <BulkActionButton key={action.key} action={action} />
-            ))}
+      <Toolbar
+        ref={toolbarRef}
+        aria-hidden={count === 0}
+        inert={count === 0}
+        variant="dense"
+        sx={{
+          gridArea: "1 / 1",
+          visibility: count === 0 ? "hidden" : "visible",
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
+          borderRadius: 1,
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 1,
+          py: 0.5,
+        }}
+      >
+        <Box sx={{flex: "1 1 min-content", minWidth: 0, overflow: "hidden"}}>
+          <Box
+            ref={selectionRef}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              minHeight: 32,
+              width: isMobile ? undefined : "max-content",
+            }}
+          >
+            <Typography variant="body2" noWrap>
+              {pluralCount(count, countLabel)}
+            </Typography>
+            {!!hiddenCount && (
+              <Tooltip title="Выбраны, но скрыты текущими фильтрами — действия их тоже затронут">
+                <Typography variant="body2" sx={{opacity: 0.8, whiteSpace: "nowrap"}}>
+                  (скрыто: {hiddenCount.toLocaleString("ru-RU")})
+                </Typography>
+              </Tooltip>
+            )}
+            <Tooltip title="Очистить выбранное">
+              <IconButton size="small" color="inherit" onClick={onClear} sx={{p: 0.5}}>
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          {info && <TableInfoBar stats={info} loading={infoLoading} compact />}
+        </Box>
+        {buttonActions.map((action) => (
+          <BulkActionButton key={action.key} action={action} />
+        ))}
+        {menuActions.length > 0 && (
+          <>
             <Button
               size="small"
               variant="contained"
               color="inherit"
-              endIcon={<ArrowDropDownIcon />}
-              sx={{flexShrink: 0, whiteSpace: "nowrap"}}
+              endIcon={
+                menuActions.some((a) => a.pending) ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : (
+                  <ArrowDropDownIcon />
+                )
+              }
+              disabled={menuActions.every((a) => a.disabled)}
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
+              sx={{...buttonSx, flexShrink: 0, whiteSpace: "nowrap"}}
             >
-              Ещё
+              {isMobile ? "Действия" : "Ещё"}
             </Button>
-          </Box>
-          {info && (
-            <Box ref={infoMeasurementRef} sx={{width: "max-content"}}>
-              <TableInfoBar stats={info} loading={infoLoading} compact />
+            <Menu
+              anchorEl={menuAnchor}
+              open={menuAnchor != null}
+              onClose={() => setMenuAnchor(null)}
+            >
+              {menuActions.map((action) => (
+                <MenuItem
+                  key={action.key}
+                  disabled={action.disabled}
+                  onClick={(event) => handleMenuClick(action, event)}
+                  sx={
+                    action.danger
+                      ? {color: "error.main", "& .MuiListItemIcon-root": {color: "inherit"}}
+                      : undefined
+                  }
+                >
+                  {(action.icon || action.pending) && (
+                    <ListItemIcon>
+                      {action.pending ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : (
+                        action.icon
+                      )}
+                    </ListItemIcon>
+                  )}
+                  <ListItemText>{actionText(action)}</ListItemText>
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
+        {!isMobile && (
+          <Box
+            aria-hidden
+            inert
+            sx={{
+              position: "absolute",
+              visibility: "hidden",
+              width: 0,
+              height: 0,
+              overflow: "hidden",
+              pointerEvents: "none",
+            }}
+          >
+            <Box ref={measurementRef} sx={{display: "flex", width: "max-content"}}>
+              {actions.map((action) => (
+                <BulkActionButton key={action.key} action={action} />
+              ))}
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                endIcon={<ArrowDropDownIcon />}
+                sx={{flexShrink: 0, whiteSpace: "nowrap"}}
+              >
+                Ещё
+              </Button>
             </Box>
-          )}
-        </Box>
-      )}
-    </Toolbar>
+            {info && (
+              <Box ref={infoMeasurementRef} sx={{width: "max-content"}}>
+                <TableInfoBar stats={info} loading={infoLoading} compact />
+              </Box>
+            )}
+          </Box>
+        )}
+      </Toolbar>
+    </Box>
   );
 }
 

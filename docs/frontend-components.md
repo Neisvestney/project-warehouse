@@ -525,9 +525,12 @@ something is selected and never needs a separate visibility flag.
 
 `infoActions` holds display controls such as `TableColumnsButton` at the right edge of the summary through
 `TableInfoBar.children`. These controls are hidden while rows are selected. The summary appears below the
-selected count inside the same selection band, with smaller `caption` text and no extra toolbar height.
-The left section clips its contents to its allocated width; a compact summary wider than the available space
-scrolls horizontally within that section.
+selected count, with smaller `caption` text. Summary stats wrap as whole «label value» pairs within the left
+section. Action buttons align vertically with the center of this section and wrap when the controls do not
+fit the available width.
+Both toolbar variants share a CSS grid cell, which reserves the larger height in either
+state so selecting or clearing rows does not move the table. The inactive variant stays laid out with
+`visibility: hidden`, `inert` and `aria-hidden`; resizing and summary changes update the reserved height naturally.
 
 An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
 `getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).
@@ -575,9 +578,9 @@ sits on a wrapper around the `Skeleton`, because the pulse animation drives the 
 Dense toolbar with the summary of a whole list, sitting above a table. Its default height matches the
 selection toolbar in [`BulkBar`](#bulkbar). It is outlined rather than filled — a
 `divider` border around `text.secondary` labels on the bare surface — so the summary stays quieter than both
-the table and the `primary.main` selection band. `compact` uses `caption` text in a 20 px row with inherited
+the table and the `primary.main` selection band. `compact` uses `caption` text in a row at least 20 px tall with inherited
 text color at 70% opacity and no border or padding. A 4 px negative top margin keeps it close to the selected
-count. It scrolls horizontally when needed to fit inside the selection band.
+count. Stats wrap as whole pairs when needed to fit inside the selection band.
 
 `stats: TableInfoStat[]` — `{key, label, value, color?, hidden?, onClick?, active?}` — is rendered as a row of
 «label value» pairs with the value in bold; `color` tints it (`error.main` for a counter that signals trouble) and
