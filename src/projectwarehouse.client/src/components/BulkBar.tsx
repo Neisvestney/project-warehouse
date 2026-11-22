@@ -1,5 +1,6 @@
 import {useState, type ReactNode} from "react";
 import {
+  Box,
   Button,
   CircularProgress,
   IconButton,
@@ -45,7 +46,6 @@ interface BulkBarProps {
   /** Part of `count` the current filters hide; shown next to it when non-zero. */
   hiddenCount?: number;
   actions: BulkAction[];
-  /** Shown instead of the selection toolbar while no action applies, at the same height. */
   info?: TableInfoStat[];
   infoLoading?: boolean;
   infoActions?: ReactNode;
@@ -58,10 +58,6 @@ function actionText(action: BulkAction) {
   return action.count != null ? `${action.label} (${action.count})` : action.label;
 }
 
-/**
- * Toolbar shown above a table while rows are selected. With nothing selected it falls back to the
- * list summary in `info`, or renders nothing.
- */
 function BulkBar({
   count,
   countLabel,
@@ -100,25 +96,35 @@ function BulkBar({
     <Toolbar
       variant="dense"
       sx={{
+        position: "sticky",
+        top: 6,
+        zIndex: theme.zIndex.appBar - 2,
         bgcolor: "primary.main",
         color: "primary.contrastText",
         borderRadius: 1,
         gap: 1,
       }}
     >
-      <Typography variant="body2">{pluralCount(count, countLabel)}</Typography>
-      {!!hiddenCount && (
-        <Tooltip title="Выбраны, но скрыты текущими фильтрами — действия их тоже затронут">
-          <Typography variant="body2" sx={{opacity: 0.8, whiteSpace: "nowrap"}}>
-            (скрыто: {hiddenCount.toLocaleString("ru-RU")})
+      <Box sx={{flex: 1, minWidth: 0}}>
+        <Box sx={{display: "flex", alignItems: "center", gap: 1}}>
+          <Typography variant="body2" noWrap>
+            {pluralCount(count, countLabel)}
           </Typography>
-        </Tooltip>
-      )}
-      <Tooltip title="Очистить выбранное">
-        <IconButton size="small" color="inherit" onClick={onClear} sx={{mr: "auto"}}>
-          <ClearIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
+          {!!hiddenCount && (
+            <Tooltip title="Выбраны, но скрыты текущими фильтрами — действия их тоже затронут">
+              <Typography variant="body2" sx={{opacity: 0.8, whiteSpace: "nowrap"}}>
+                (скрыто: {hiddenCount.toLocaleString("ru-RU")})
+              </Typography>
+            </Tooltip>
+          )}
+          <Tooltip title="Очистить выбранное">
+            <IconButton size="small" color="inherit" onClick={onClear} sx={{p: 0.5}}>
+              <ClearIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        {info && <TableInfoBar stats={info} loading={infoLoading} compact />}
+      </Box>
       {buttonActions.map((action) => (
         <Button
           key={action.key}

@@ -20,15 +20,12 @@ interface TableInfoBarProps {
   stats: TableInfoStat[];
   /** Covers the values with a skeleton while the list is fetching, even over settled values. */
   loading?: boolean;
+  compact?: boolean;
   /** Pushed to the right end of the bar. */
   children?: ReactNode;
 }
 
-/**
- * Summary of the whole list shown above a table. Matches the dense height of BulkBar, which replaces it
- * while rows are selected.
- */
-function TableInfoBar({stats, loading = false, children}: TableInfoBarProps) {
+function TableInfoBar({stats, loading = false, compact = false, children}: TableInfoBarProps) {
   const visible = stats.filter((s) => !s.hidden);
 
   return (
@@ -45,14 +42,33 @@ function TableInfoBar({stats, loading = false, children}: TableInfoBarProps) {
         rowGap: 0.5,
         py: {xs: 1, sm: 0},
         whiteSpace: "nowrap",
+        ...(compact && {
+          color: "inherit",
+          opacity: 0.7,
+          mt: -0.5,
+          border: 0,
+          borderRadius: 0,
+          minHeight: {xs: 0, sm: 0},
+          height: 20,
+          px: {xs: 0, sm: 0},
+          py: {xs: 0, sm: 0},
+          flexWrap: "nowrap",
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": {display: "none"},
+          "& > *": {flexShrink: 0},
+        }),
       }}
     >
       {visible.map((stat) => {
         const content = (
           <>
-            <Typography variant="body2">{stat.label}</Typography>
+            <Typography variant={compact ? "caption" : "body2"}>{stat.label}</Typography>
             {/* the skeleton sits inside the Typography so both states share one line box and baseline */}
-            <Typography variant="body2" sx={{fontWeight: 600, color: stat.color ?? "text.primary"}}>
+            <Typography
+              variant={compact ? "caption" : "body2"}
+              sx={{fontWeight: 600, color: compact ? "inherit" : (stat.color ?? "text.primary")}}
+            >
               <SkeletonFade loading={loading} sx={{borderRadius: 0.5}}>
                 <Box component="span" sx={{minWidth: 32}}>
                   {stat.value}
@@ -78,6 +94,12 @@ function TableInfoBar({stats, loading = false, children}: TableInfoBarProps) {
               borderColor: stat.active ? (stat.color ?? "primary.main") : "transparent",
               backgroundColor: stat.active ? "action.selected" : undefined,
               "&:hover": {backgroundColor: "action.hover"},
+              ...(compact && {
+                px: 0.5,
+                mx: 0,
+                py: 0,
+                borderColor: stat.active ? "currentColor" : "transparent",
+              }),
             }}
           >
             {content}
@@ -88,9 +110,11 @@ function TableInfoBar({stats, loading = false, children}: TableInfoBarProps) {
           </Stack>
         );
       })}
-      <Stack direction="row" spacing={1} sx={{alignItems: "center", ml: "auto"}}>
-        {children}
-      </Stack>
+      {children && (
+        <Stack direction="row" spacing={1} sx={{alignItems: "center", ml: "auto"}}>
+          {children}
+        </Stack>
+      )}
     </Toolbar>
   );
 }

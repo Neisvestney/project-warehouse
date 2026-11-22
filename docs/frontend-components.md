@@ -497,8 +497,8 @@ skeleton of the badge's own size. The tabs are `scrollable`, which keeps five or
 ### `BulkBar`
 
 Dense toolbar shown above a table while rows are selected: a `primary.main` band with the selected count on the
-left, a clear button pinned next to it, and the bulk actions pushed to the right edge by that button's
-`mr: "auto"`.
+left, a clear button pinned next to it, and the bulk actions at the right edge. The selection band sticks
+to the top of the viewport while scrolling, above table content and below the navigation sidebar.
 
 `count` is rendered through `pluralCount`, so `countLabel` takes the three Russian forms of the phrase
 (`{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}`). `hiddenCount` — the part of `count`
@@ -519,7 +519,8 @@ button rather than silently turning into the list summary. So a caller builds th
 something is selected and never needs a separate visibility flag.
 
 `infoActions` holds display controls such as `TableColumnsButton` at the right edge of the summary through
-`TableInfoBar.children`. These controls are shown only while no rows are selected.
+`TableInfoBar.children`. These controls are hidden while rows are selected. The summary appears below the
+selected count inside the same selection band, with smaller `caption` text and no extra toolbar height.
 
 An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
 `getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).
@@ -564,10 +565,12 @@ sits on a wrapper around the `Skeleton`, because the pulse animation drives the 
 
 ### `TableInfoBar`
 
-Dense toolbar with the summary of a whole list, sitting above a table at exactly the height of
-[`BulkBar`](#bulkbar) so the page does not jump when a selection starts. It is outlined rather than filled — a
+Dense toolbar with the summary of a whole list, sitting above a table. Its default height matches the
+selection toolbar in [`BulkBar`](#bulkbar). It is outlined rather than filled — a
 `divider` border around `text.secondary` labels on the bare surface — so the summary stays quieter than both
-the table and the `primary.main` selection band that replaces it.
+the table and the `primary.main` selection band. `compact` uses `caption` text in a 20 px row with inherited
+text color at 70% opacity and no border or padding. A 4 px negative top margin keeps it close to the selected
+count. It scrolls horizontally when needed to fit inside the selection band.
 
 `stats: TableInfoStat[]` — `{key, label, value, color?, hidden?, onClick?, active?}` — is rendered as a row of
 «label value» pairs with the value in bold; `color` tints it (`error.main` for a counter that signals trouble) and
