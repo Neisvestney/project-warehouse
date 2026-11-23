@@ -1268,7 +1268,7 @@ helper, since in the light scheme the bar is already `primary` and the mark stay
 
 ### Chip colors
 
-Chips are labels, not actions, so in the dark scheme every filled chip is a muted tint — a dark colored
+Built-in and catalog chips are labels, not actions, so in the dark scheme their filled variant is a muted tint — a dark colored
 ground with a light colored label — instead of a saturated block with dark text. Two tint tables in
 `theme.ts` carry that, and they are deliberately separate:
 
@@ -1282,9 +1282,12 @@ never mixes muted and saturated chips.
 
 **Catalog item types** get their own palette colors — `itemStandard`, `itemUnit`, `itemProductGroup`,
 `itemVariation`, `itemBundle` — declared per scheme and augmented in `src/extend-theme.d.ts` (both
-`Palette`/`PaletteOptions` and `ChipPropsColorOverrides`), the same pattern as `ozon` and `wb`.
+`Palette`/`PaletteOptions` and `ChipPropsColorOverrides`), the same pattern as `ozon`, `wb` and `ym`.
 `CATALOG_ITEM_TYPE_CONFIG` in `features/catalog/catalogItemTypes.ts` maps each `CatalogItemType` to one
 of them, and `CatalogItemTypeChip` passes it straight to `Chip`.
+
+Marketplace chips use brand palettes. In the dark scheme `ozon`, `wb` and `ym` have bright grounds and dark
+labels; Yandex Market keeps its yellow hue. The shared `MarketplaceAccountChip` controls sizing and navigation.
 
 Item types hold hues of their own rather than reusing the built-in ones. `ORDER_STATUS_COLORS`,
 `ORDER_TYPE_COLORS` and `TASK_STATUS_COLORS` between them already claim all six built-ins, and an order

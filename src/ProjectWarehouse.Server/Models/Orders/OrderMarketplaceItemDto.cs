@@ -9,6 +9,7 @@ public class OrderMarketplaceItemDto: IHasIdentity
     public MarketplaceCardDto? MarketplaceCard { get; set; }
     public Guid? CatalogItemId { get; set; }
     public int Quantity { get; set; }
+    public string? ExternalItemId { get; set; }
 
     public decimal? CustomerPrice { get; set; }
     public string? CustomerCurrencyCode { get; set; }

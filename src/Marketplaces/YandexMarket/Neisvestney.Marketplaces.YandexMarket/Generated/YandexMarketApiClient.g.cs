@@ -665,6 +665,114 @@ namespace Neisvestney.Marketplaces.YandexMarket
         /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<GetReturnsResponse> GetReturnsAsync(long campaignId, string? pageToken, int? limit, System.Collections.Generic.IEnumerable<long>? orderIds, System.Collections.Generic.IEnumerable<RefundStatusType>? statuses, System.Collections.Generic.IEnumerable<ReturnShipmentStatusType>? shipmentStatuses, ReturnType? type, System.DateTimeOffset? fromDate, System.DateTimeOffset? toDate, System.Threading.CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Отчет по платежам
+        /// </summary>
+        /// <remarks>
+        /// Запускает генерацию отчета по платежам за заданный период. [Что это за отчет](https://yandex.ru/support/marketplace/ru/accounting/transactions#all-pay)
+        /// <br/>
+        /// <br/>Узнать статус генерации и получить ссылку на готовый отчет можно с помощью запроса [GET v2/reports/info/{reportId}](../../reference/reports/getReportInfo.md).
+        /// <br/>
+        /// <br/>Тип отчета зависит от того, какие поля заполнены в запросе:
+        /// <br/>
+        /// <br/>#|
+        /// <br/>|| **Тип отчета** | **Какие поля нужны** | **Комментарий** ||
+        /// <br/>|| О платежах за период | `dateFrom` и `dateTo` |
+        /// <br/>  В отчет попадают все платежи, которые были выплачены и начислены в выбранный период.
+        /// <br/>
+        /// <br/>  Пример: если перевод выполнен 31 августа и зачислен 1 сентября, он попадет в отчет за оба месяца.
+        /// <br/>||
+        /// <br/>|| О платежном поручении | `bankOrderId` и `bankOrderDateTime` |—||
+        /// <br/>|| [О баллах Маркета](*баллы_маркета) | `monthOfYear` |—||
+        /// <br/>|#
+        /// <br/>
+        /// <br/>Заказать отчеты нескольких типов одним запросом нельзя.
+        /// </remarks>
+        /// <param name="format">Формат отчета или документа.</param>
+        /// <param name="language">Язык отчета или документа.</param>
+        /// <returns>В ответ приходит идентификатор, который позволяет узнавать статус генерации и скачать готовый отчет.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GenerateReportResponse> GenerateUnitedNettingReportAsync(ReportFormatType? format, ReportLanguageType? language, GenerateUnitedNettingReportRequest body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Отчет по платежам
+        /// </summary>
+        /// <remarks>
+        /// Запускает генерацию отчета по платежам за заданный период. [Что это за отчет](https://yandex.ru/support/marketplace/ru/accounting/transactions#all-pay)
+        /// <br/>
+        /// <br/>Узнать статус генерации и получить ссылку на готовый отчет можно с помощью запроса [GET v2/reports/info/{reportId}](../../reference/reports/getReportInfo.md).
+        /// <br/>
+        /// <br/>Тип отчета зависит от того, какие поля заполнены в запросе:
+        /// <br/>
+        /// <br/>#|
+        /// <br/>|| **Тип отчета** | **Какие поля нужны** | **Комментарий** ||
+        /// <br/>|| О платежах за период | `dateFrom` и `dateTo` |
+        /// <br/>  В отчет попадают все платежи, которые были выплачены и начислены в выбранный период.
+        /// <br/>
+        /// <br/>  Пример: если перевод выполнен 31 августа и зачислен 1 сентября, он попадет в отчет за оба месяца.
+        /// <br/>||
+        /// <br/>|| О платежном поручении | `bankOrderId` и `bankOrderDateTime` |—||
+        /// <br/>|| [О баллах Маркета](*баллы_маркета) | `monthOfYear` |—||
+        /// <br/>|#
+        /// <br/>
+        /// <br/>Заказать отчеты нескольких типов одним запросом нельзя.
+        /// </remarks>
+        /// <param name="format">Формат отчета или документа.</param>
+        /// <param name="language">Язык отчета или документа.</param>
+        /// <returns>В ответ приходит идентификатор, который позволяет узнавать статус генерации и скачать готовый отчет.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GenerateReportResponse> GenerateUnitedNettingReportAsync(ReportFormatType? format, ReportLanguageType? language, GenerateUnitedNettingReportRequest body, System.Threading.CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Получение заданного отчета или документа
+        /// </summary>
+        /// <remarks>
+        /// Возвращает статус генерации заданного отчета или документа и, если он готов, ссылку для скачивания.
+        /// <br/>
+        /// <br/>Чтобы воспользоваться этим запросом, вначале нужно запустить генерацию отчета или документа. [Инструкция](../../step-by-step/reports.md)
+        /// </remarks>
+        /// <param name="reportId">Идентификатор отчета или документа, который вы получили после запуска генерации.</param>
+        /// <param name="sourceType">Признак типа кабинета, от имени которого вызывается метод:
+        /// <br/>
+        /// <br/>- `SELLER` — продавец.
+        /// <br/>
+        /// <br/>- `ADVERTISER` — рекламодатель.
+        /// <br/>
+        /// <br/>Обязательно указывайте sourceType=ADVERTISER в каждом запросе.</param>
+        /// <returns>Статус генерации отчета или документа и ссылка, если она уже есть.
+        /// <br/>
+        /// <br/>Статус генерации `FAILED` или `NO_DATA`
+        /// <br/>
+        /// <br/>Проверьте корректность запроса на генерацию. Например, верно ли указан идентификатор кампании, период или номер платежного поручения.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GetReportInfoResponse> GetReportInfoAsync(string reportId, SourceType? sourceType);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получение заданного отчета или документа
+        /// </summary>
+        /// <remarks>
+        /// Возвращает статус генерации заданного отчета или документа и, если он готов, ссылку для скачивания.
+        /// <br/>
+        /// <br/>Чтобы воспользоваться этим запросом, вначале нужно запустить генерацию отчета или документа. [Инструкция](../../step-by-step/reports.md)
+        /// </remarks>
+        /// <param name="reportId">Идентификатор отчета или документа, который вы получили после запуска генерации.</param>
+        /// <param name="sourceType">Признак типа кабинета, от имени которого вызывается метод:
+        /// <br/>
+        /// <br/>- `SELLER` — продавец.
+        /// <br/>
+        /// <br/>- `ADVERTISER` — рекламодатель.
+        /// <br/>
+        /// <br/>Обязательно указывайте sourceType=ADVERTISER в каждом запросе.</param>
+        /// <returns>Статус генерации отчета или документа и ссылка, если она уже есть.
+        /// <br/>
+        /// <br/>Статус генерации `FAILED` или `NO_DATA`
+        /// <br/>
+        /// <br/>Проверьте корректность запроса на генерацию. Например, верно ли указан идентификатор кампании, период или номер платежного поручения.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GetReportInfoResponse> GetReportInfoAsync(string reportId, SourceType? sourceType, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -2657,6 +2765,399 @@ namespace Neisvestney.Marketplaces.YandexMarket
                         if (status_ == 200)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<GetReturnsResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiClientDataErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiClientDataErrorResponse>("\u0417\u0430\u043f\u0440\u043e\u0441 \u0441\u043e\u0434\u0435\u0440\u0436\u0438\u0442 \u043d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u044b\u0435 \u0434\u0430\u043d\u043d\u044b\u0435. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#400)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 401)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiUnauthorizedErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiUnauthorizedErrorResponse>("\u0412 \u0437\u0430\u043f\u0440\u043e\u0441\u0435 \u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u044b \u0434\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u0438. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#401)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiForbiddenErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiForbiddenErrorResponse>("\u0414\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u0438 \u043d\u0435\u0432\u0435\u0440\u043d\u044b \u0438\u043b\u0438 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0440\u0435\u0441\u0443\u0440\u0441\u0443 \u0437\u0430\u043f\u0440\u0435\u0449\u0435\u043d. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#403)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiNotFoundErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiNotFoundErrorResponse>("\u0417\u0430\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u043c\u044b\u0439 \u0440\u0435\u0441\u0443\u0440\u0441 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#404)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 420)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiLimitErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiLimitErrorResponse>("\u041f\u0440\u0435\u0432\u044b\u0448\u0435\u043d\u043e \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u0435 \u043d\u0430 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0440\u0435\u0441\u0443\u0440\u0441\u0443. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#420)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiServerErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiServerErrorResponse>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u041c\u0430\u0440\u043a\u0435\u0442\u0430. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#500)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new YandexMarketApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Отчет по платежам
+        /// </summary>
+        /// <remarks>
+        /// Запускает генерацию отчета по платежам за заданный период. [Что это за отчет](https://yandex.ru/support/marketplace/ru/accounting/transactions#all-pay)
+        /// <br/>
+        /// <br/>Узнать статус генерации и получить ссылку на готовый отчет можно с помощью запроса [GET v2/reports/info/{reportId}](../../reference/reports/getReportInfo.md).
+        /// <br/>
+        /// <br/>Тип отчета зависит от того, какие поля заполнены в запросе:
+        /// <br/>
+        /// <br/>#|
+        /// <br/>|| **Тип отчета** | **Какие поля нужны** | **Комментарий** ||
+        /// <br/>|| О платежах за период | `dateFrom` и `dateTo` |
+        /// <br/>  В отчет попадают все платежи, которые были выплачены и начислены в выбранный период.
+        /// <br/>
+        /// <br/>  Пример: если перевод выполнен 31 августа и зачислен 1 сентября, он попадет в отчет за оба месяца.
+        /// <br/>||
+        /// <br/>|| О платежном поручении | `bankOrderId` и `bankOrderDateTime` |—||
+        /// <br/>|| [О баллах Маркета](*баллы_маркета) | `monthOfYear` |—||
+        /// <br/>|#
+        /// <br/>
+        /// <br/>Заказать отчеты нескольких типов одним запросом нельзя.
+        /// </remarks>
+        /// <param name="format">Формат отчета или документа.</param>
+        /// <param name="language">Язык отчета или документа.</param>
+        /// <returns>В ответ приходит идентификатор, который позволяет узнавать статус генерации и скачать готовый отчет.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<GenerateReportResponse> GenerateUnitedNettingReportAsync(ReportFormatType? format, ReportLanguageType? language, GenerateUnitedNettingReportRequest body)
+        {
+            return GenerateUnitedNettingReportAsync(format, language, body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Отчет по платежам
+        /// </summary>
+        /// <remarks>
+        /// Запускает генерацию отчета по платежам за заданный период. [Что это за отчет](https://yandex.ru/support/marketplace/ru/accounting/transactions#all-pay)
+        /// <br/>
+        /// <br/>Узнать статус генерации и получить ссылку на готовый отчет можно с помощью запроса [GET v2/reports/info/{reportId}](../../reference/reports/getReportInfo.md).
+        /// <br/>
+        /// <br/>Тип отчета зависит от того, какие поля заполнены в запросе:
+        /// <br/>
+        /// <br/>#|
+        /// <br/>|| **Тип отчета** | **Какие поля нужны** | **Комментарий** ||
+        /// <br/>|| О платежах за период | `dateFrom` и `dateTo` |
+        /// <br/>  В отчет попадают все платежи, которые были выплачены и начислены в выбранный период.
+        /// <br/>
+        /// <br/>  Пример: если перевод выполнен 31 августа и зачислен 1 сентября, он попадет в отчет за оба месяца.
+        /// <br/>||
+        /// <br/>|| О платежном поручении | `bankOrderId` и `bankOrderDateTime` |—||
+        /// <br/>|| [О баллах Маркета](*баллы_маркета) | `monthOfYear` |—||
+        /// <br/>|#
+        /// <br/>
+        /// <br/>Заказать отчеты нескольких типов одним запросом нельзя.
+        /// </remarks>
+        /// <param name="format">Формат отчета или документа.</param>
+        /// <param name="language">Язык отчета или документа.</param>
+        /// <returns>В ответ приходит идентификатор, который позволяет узнавать статус генерации и скачать готовый отчет.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<GenerateReportResponse> GenerateUnitedNettingReportAsync(ReportFormatType? format, ReportLanguageType? language, GenerateUnitedNettingReportRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v2/reports/united-netting/generate"
+                    urlBuilder_.Append("v2/reports/united-netting/generate");
+                    urlBuilder_.Append('?');
+                    if (format != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("format")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(format, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (language != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("language")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(language, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<GenerateReportResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiClientDataErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiClientDataErrorResponse>("\u0417\u0430\u043f\u0440\u043e\u0441 \u0441\u043e\u0434\u0435\u0440\u0436\u0438\u0442 \u043d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u044b\u0435 \u0434\u0430\u043d\u043d\u044b\u0435. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#400)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 401)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiUnauthorizedErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiUnauthorizedErrorResponse>("\u0412 \u0437\u0430\u043f\u0440\u043e\u0441\u0435 \u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u044b \u0434\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u0438. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#401)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiForbiddenErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiForbiddenErrorResponse>("\u0414\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u0438 \u043d\u0435\u0432\u0435\u0440\u043d\u044b \u0438\u043b\u0438 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0440\u0435\u0441\u0443\u0440\u0441\u0443 \u0437\u0430\u043f\u0440\u0435\u0449\u0435\u043d. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#403)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiNotFoundErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiNotFoundErrorResponse>("\u0417\u0430\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u043c\u044b\u0439 \u0440\u0435\u0441\u0443\u0440\u0441 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#404)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 420)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiLimitErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiLimitErrorResponse>("\u041f\u0440\u0435\u0432\u044b\u0448\u0435\u043d\u043e \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u0435 \u043d\u0430 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0440\u0435\u0441\u0443\u0440\u0441\u0443. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#420)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiServerErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new YandexMarketApiException<ApiServerErrorResponse>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u041c\u0430\u0440\u043a\u0435\u0442\u0430. [\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435 \u043e\u0431 \u043e\u0448\u0438\u0431\u043a\u0435](../../concepts/error-codes.md#500)", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new YandexMarketApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Получение заданного отчета или документа
+        /// </summary>
+        /// <remarks>
+        /// Возвращает статус генерации заданного отчета или документа и, если он готов, ссылку для скачивания.
+        /// <br/>
+        /// <br/>Чтобы воспользоваться этим запросом, вначале нужно запустить генерацию отчета или документа. [Инструкция](../../step-by-step/reports.md)
+        /// </remarks>
+        /// <param name="reportId">Идентификатор отчета или документа, который вы получили после запуска генерации.</param>
+        /// <param name="sourceType">Признак типа кабинета, от имени которого вызывается метод:
+        /// <br/>
+        /// <br/>- `SELLER` — продавец.
+        /// <br/>
+        /// <br/>- `ADVERTISER` — рекламодатель.
+        /// <br/>
+        /// <br/>Обязательно указывайте sourceType=ADVERTISER в каждом запросе.</param>
+        /// <returns>Статус генерации отчета или документа и ссылка, если она уже есть.
+        /// <br/>
+        /// <br/>Статус генерации `FAILED` или `NO_DATA`
+        /// <br/>
+        /// <br/>Проверьте корректность запроса на генерацию. Например, верно ли указан идентификатор кампании, период или номер платежного поручения.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<GetReportInfoResponse> GetReportInfoAsync(string reportId, SourceType? sourceType)
+        {
+            return GetReportInfoAsync(reportId, sourceType, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получение заданного отчета или документа
+        /// </summary>
+        /// <remarks>
+        /// Возвращает статус генерации заданного отчета или документа и, если он готов, ссылку для скачивания.
+        /// <br/>
+        /// <br/>Чтобы воспользоваться этим запросом, вначале нужно запустить генерацию отчета или документа. [Инструкция](../../step-by-step/reports.md)
+        /// </remarks>
+        /// <param name="reportId">Идентификатор отчета или документа, который вы получили после запуска генерации.</param>
+        /// <param name="sourceType">Признак типа кабинета, от имени которого вызывается метод:
+        /// <br/>
+        /// <br/>- `SELLER` — продавец.
+        /// <br/>
+        /// <br/>- `ADVERTISER` — рекламодатель.
+        /// <br/>
+        /// <br/>Обязательно указывайте sourceType=ADVERTISER в каждом запросе.</param>
+        /// <returns>Статус генерации отчета или документа и ссылка, если она уже есть.
+        /// <br/>
+        /// <br/>Статус генерации `FAILED` или `NO_DATA`
+        /// <br/>
+        /// <br/>Проверьте корректность запроса на генерацию. Например, верно ли указан идентификатор кампании, период или номер платежного поручения.</returns>
+        /// <exception cref="YandexMarketApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<GetReportInfoResponse> GetReportInfoAsync(string reportId, SourceType? sourceType, System.Threading.CancellationToken cancellationToken)
+        {
+            if (reportId == null)
+                throw new System.ArgumentNullException("reportId");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v2/reports/info/{reportId}"
+                    urlBuilder_.Append("v2/reports/info/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(reportId, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append('?');
+                    if (sourceType != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sourceType")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sourceType, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<GetReportInfoResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new YandexMarketApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -5128,6 +5629,142 @@ namespace Neisvestney.Marketplaces.YandexMarket
     }
 
     /// <summary>
+    /// Идентификатор, который понадобится для отслеживания статуса генерации и получения готового отчета или документа.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GenerateReportDTO
+    {
+
+        /// <summary>
+        /// Идентификатор, который понадобится для отслеживания статуса генерации и получения готового отчета или документа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reportId")]
+        public string ReportId { get; set; } = default!;
+
+        /// <summary>
+        /// Ожидаемая продолжительность генерации в миллисекундах.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("estimatedGenerationTime")]
+        public long EstimatedGenerationTime { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Ответ на запрос генерации отчета или документа.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GenerateReportResponse : ApiResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("result")]
+        public GenerateReportDTO? Result { get; set; } = default!;
+
+    }
+
+    /// <summary>
+    /// Данные, необходимые для генерации отчета: идентификатор кампании, период, за который нужен отчет, а также фильтры.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GenerateUnitedNettingReportRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("businessId")]
+        public long BusinessId { get; set; } = default!;
+
+        /// <summary>
+        /// Параметр устарел и будет отключен 12.10.2026.
+        /// <br/>
+        /// <br/>Вместо него используйте `dateFrom`.
+        /// <br/>
+        /// <br/>Начало периода, включительно.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("dateTimeFrom")]
+        [System.Obsolete]
+        public System.DateTimeOffset? DateTimeFrom { get; set; } = default!;
+
+        /// <summary>
+        /// Параметр устарел и будет отключен 12.10.2026.
+        /// <br/>
+        /// <br/>Вместо него используйте `dateTo`.
+        /// <br/>
+        /// <br/>Конец периода, включительно. Максимальный период — 3 месяца.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("dateTimeTo")]
+        [System.Obsolete]
+        public System.DateTimeOffset? DateTimeTo { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("dateFrom")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
+        public System.DateTimeOffset? DateFrom { get; set; } = default!;
+
+        /// <summary>
+        /// Конец периода, включительно. Максимальный период — 3 месяца.
+        /// <br/>
+        /// <br/>Формат даты: `ГГГГ-ММ-ДД`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("dateTo")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
+        public System.DateTimeOffset? DateTo { get; set; } = default!;
+
+        /// <summary>
+        /// Номер платежного поручения.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("bankOrderId")]
+        public long? BankOrderId { get; set; } = default!;
+
+        /// <summary>
+        /// Дата платежного поручения.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("bankOrderDateTime")]
+        public System.DateTimeOffset? BankOrderDateTime { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("monthOfYear")]
+        public MonthOfYearDTO? MonthOfYear { get; set; } = default!;
+
+        /// <summary>
+        /// Список моделей, которые нужны в отчете.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("placementPrograms")]
+        // TODO(system.text.json): Add ItemConverterType with enum converter when supported
+        public System.Collections.Generic.IReadOnlyList<PlacementType>? PlacementPrograms { get; set; } = default!;
+
+        /// <summary>
+        /// Список ИНН, которые нужны в отчете.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("inns")]
+        public System.Collections.Generic.IReadOnlyList<string>? Inns { get; set; } = default!;
+
+        /// <summary>
+        /// Список идентификаторов кампании тех магазинов, которые нужны в отчете.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("campaignIds")]
+        public System.Collections.Generic.IReadOnlyList<long>? CampaignIds { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// Запрос на получение информации о заказах бизнеса.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -5662,6 +6299,18 @@ namespace Neisvestney.Marketplaces.YandexMarket
 
     }
 
+    /// <summary>
+    /// Ответ на запрос информации об отчете или документе.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReportInfoResponse : ApiResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("result")]
+        public ReportInfoDTO? Result { get; set; } = default!;
+
+    }
+
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class GetReturnsResponse : ApiResponse
     {
@@ -5975,6 +6624,30 @@ namespace Neisvestney.Marketplaces.YandexMarket
 
         [System.Runtime.Serialization.EnumMember(Value = @"FAILED")]
         FAILED = 2,
+
+    }
+
+    /// <summary>
+    /// Месяц, за который нужен отчет о баллах Маркета.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MonthOfYearDTO
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("year")]
+        public int Year { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("month")]
+        public int Month { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
     }
 
@@ -8552,6 +9225,153 @@ namespace Neisvestney.Marketplaces.YandexMarket
     }
 
     /// <summary>
+    /// Формат отчета:
+    /// <br/>
+    /// <br/>* `FILE` — файл с электронной таблицей (:no-translate[XLSX]).
+    /// <br/>* `CSV` — ZIP-архив с CSV-файлами на каждый лист отчета.
+    /// <br/>* `JSON` — ZIP-архив с JSON-файлами на каждый лист отчета.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ReportFormatType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"FILE")]
+        FILE = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"CSV")]
+        CSV = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"JSON")]
+        JSON = 2,
+
+    }
+
+    /// <summary>
+    /// Статус генерации и ссылка на готовый отчет или документ.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ReportInfoDTO
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<ReportStatusType>))]
+        public ReportStatusType Status { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("subStatus")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<ReportSubStatusType>))]
+        public ReportSubStatusType? SubStatus { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время запроса на генерацию.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("generationRequestedAt")]
+        public System.DateTimeOffset GenerationRequestedAt { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время завершения генерации.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("generationFinishedAt")]
+        public System.DateTimeOffset? GenerationFinishedAt { get; set; } = default!;
+
+        /// <summary>
+        /// Ссылка на готовый отчет или документ.
+        /// <br/>
+        /// <br/>Срок действия ссылки
+        /// <br/>
+        /// <br/>Ссылка актуальна **60 минут** с момента получения ответа. При каждом запросе `GET /v2/reports/info/{reportId}` генерируется новая ссылка, срок действия которой ограничен.
+        /// <br/>
+        /// <br/>**Рекомендация для интеграций:** сразу после получения ссылки скачайте отчет и сохраните его у себя. Не сохраняйте ссылку для последующего использования — она станет недействительной через после истечения срока действия.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("file")]
+        public string? File { get; set; } = default!;
+
+        /// <summary>
+        /// Ожидаемая продолжительность генерации в миллисекундах.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("estimatedGenerationTime")]
+        public long? EstimatedGenerationTime { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Язык отчета:
+    /// <br/>
+    /// <br/>* `RU` — русский язык.
+    /// <br/>* `EN` — английский язык.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ReportLanguageType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"RU")]
+        RU = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"EN")]
+        EN = 1,
+
+    }
+
+    /// <summary>
+    /// Статус генерации:
+    /// <br/>
+    /// <br/>* `PENDING` — ожидает генерации.
+    /// <br/>* `PROCESSING` — генерируется.
+    /// <br/>* `FAILED` — во время генерации произошла ошибка.
+    /// <br/>* `DONE` — отчет или документ готов.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ReportStatusType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PENDING")]
+        PENDING = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PROCESSING")]
+        PROCESSING = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"FAILED")]
+        FAILED = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DONE")]
+        DONE = 3,
+
+    }
+
+    /// <summary>
+    /// Подстатус генерации:
+    /// <br/>* `NO_DATA` — для такого отчета или документа нет данных.
+    /// <br/>* `TOO_LARGE` — отчет или документ превысил допустимый размер — укажите меньший период времени или уточните условия запроса.
+    /// <br/>* `RESOURCE_NOT_FOUND` — для такого отчета или документа не удалось найти часть сущностей.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ReportSubStatusType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NO_DATA")]
+        NO_DATA = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TOO_LARGE")]
+        TOO_LARGE = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"RESOURCE_NOT_FOUND")]
+        RESOURCE_NOT_FOUND = 2,
+
+    }
+
+    /// <summary>
     /// Невыкуп или возврат в заказе.
     /// <br/>
     /// <br/>Параметров `logisticPickupPoint`, `shipmentRecipientType` и `shipmentStatus` может не быть в случае возврата:
@@ -9427,6 +10247,25 @@ namespace Neisvestney.Marketplaces.YandexMarket
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Тип кабинета:
+    /// <br/>
+    /// <br/>* `SELLER` — продавец.
+    /// <br/>* `ADVERTISER` — рекламодатель.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"SELLER")]
+        SELLER = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ADVERTISER")]
+        ADVERTISER = 1,
 
     }
 

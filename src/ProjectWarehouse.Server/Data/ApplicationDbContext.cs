@@ -900,6 +900,9 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.Property(x => x.ShortName).HasMaxLength(32);
 
+            e.HasIndex(x => new { x.Type, x.ExternalCampaignId }).IsUnique()
+                .HasFilter("\"ExternalCampaignId\" IS NOT NULL");
+
             e.HasIndex(x => x.Type);
         });
 

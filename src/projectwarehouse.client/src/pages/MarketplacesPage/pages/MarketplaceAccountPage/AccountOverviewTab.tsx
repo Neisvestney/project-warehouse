@@ -82,6 +82,18 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
             <InfoRow label="Client-Id" value={account.externalClientId ?? "—"} />
           )}
           <InfoRow label="Ключ обновлён" value={formatDateTime(account.apiKeyUpdatedAt)} />
+          {account.type === "yandexMarket" && (
+            <>
+              <InfoRow label="ID бизнеса" value={String(account.externalBusinessId ?? "—")} />
+              <InfoRow label="ID кампании" value={String(account.externalCampaignId ?? "—")} />
+              {account.accrualsPausedUntil && (
+                <InfoRow
+                  label="Пауза начислений до"
+                  value={formatDateTime(account.accrualsPausedUntil)}
+                />
+              )}
+            </>
+          )}
           <InfoRow label="Интервал, мин" value={String(account.syncIntervalMinutes)} />
           <InfoRow
             label="Авто-синхронизация"

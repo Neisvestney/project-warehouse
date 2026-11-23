@@ -15,6 +15,9 @@ export const httpStatusMessages: Partial<Record<number, string>> = {
 };
 
 export const errorCodeMessages: Record<ErrorCode, string> = {
+  marketplaceCampaignDuplicate: "Эта кампания Яндекс Маркета уже подключена",
+  marketplaceAccrualsPaused:
+    "Яндекс Маркет ограничил генерацию отчётов. Начисления догрузятся при следующей синхронизации",
   invalidCredentials: "Неверный логин или пароль",
   tokenOutdated: "Токен устарел",
   tokenInvalid: "Токен недействителен",

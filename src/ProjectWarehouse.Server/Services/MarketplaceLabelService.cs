@@ -179,7 +179,8 @@ public class MarketplaceLabelService(
             throw new ValidationException("orderIds", ErrorCode.MarketplaceCredentialsUnreadable,
                 "The stored API key can no longer be decrypted.");
 
-        var credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey);
+        var credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey,
+            account.ExternalBusinessId, account.ExternalCampaignId);
 
         // Multibox postings go one at a time: Ozon does not document whether such a posting prints as
         // one page or one per box, and an unexpected page count would shift a whole batch — putting one
@@ -192,9 +193,12 @@ public class MarketplaceLabelService(
             .Select(o => o.MarketplaceOrder!.PostingNumber)
             .ToList();
 
-        var batchSize = account.Type == MarketplaceType.Wildberries
-            ? _options.Wildberries.LabelBatchSize
-            : _options.Ozon.LabelBatchSize;
+        var batchSize = account.Type switch
+        {
+            MarketplaceType.Wildberries => _options.Wildberries.LabelBatchSize,
+            MarketplaceType.YandexMarket => _options.YandexMarket.LabelBatchSize,
+            _ => _options.Ozon.LabelBatchSize,
+        };
         foreach (var chunk in single.Chunk(Math.Max(1, batchSize)))
             await FetchChunkAsync(provider, credentials, chunk, byPostingNumber, labels, failures,
                 userId, allowSplit: true, ct);
@@ -326,10 +330,10 @@ public class MarketplaceLabelService(
     {
         var byPosting = pages
             .GroupBy(p => p.PostingNumber, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
         var broken = unreadable
-            .Where(u => chunk.Contains(u.PostingNumber, StringComparer.Ordinal) && !byPosting.ContainsKey(u.PostingNumber))
+            .Where(u => chunk.Contains(u.PostingNumber, StringComparer.Ordinal))
             .DistinctBy(u => u.PostingNumber, StringComparer.Ordinal)
             .ToList();
         if (broken.Count > 0)
@@ -341,13 +345,27 @@ public class MarketplaceLabelService(
         if (missing.Count > 0)
             await MarkNotReadyAsync(missing, byPostingNumber, failures, ct);
 
-        foreach (var postingNumber in chunk.Where(byPosting.ContainsKey))
+        foreach (var postingNumber in chunk.Where(p => byPosting.ContainsKey(p) && broken.All(u => u.PostingNumber != p)))
         {
-            var page = byPosting[postingNumber];
-            var marketplaceOrder = byPostingNumber[postingNumber].MarketplaceOrder!;
-            marketplaceOrder.LabelBarcode = page.Barcode ?? marketplaceOrder.LabelBarcode;
-            await StoreAsync(byPostingNumber[postingNumber], new LabelPage(page.Content, page.Kind),
-                "application/pdf", labels, userId, ct);
+            var order = byPostingNumber[postingNumber];
+            var marketplaceOrder = order.MarketplaceOrder!;
+            var postingPages = byPosting[postingNumber];
+            var mapped = marketplaceOrder.Parcels.Select(parcel => (Parcel: parcel,
+                Pages: postingPages.Where(p => p.ParcelExternalId is null
+                    ? marketplaceOrder.Parcels.Count == 1 : p.ParcelExternalId == parcel.ExternalId).ToArray())).ToArray();
+            if (mapped.Any(m => m.Pages.Length != 1) || postingPages.Count != mapped.Length)
+            {
+                await MarkNotReadyAsync([postingNumber], byPostingNumber, failures, ct);
+                continue;
+            }
+            foreach (var (parcel, matches) in mapped)
+            {
+                var page = matches[0];
+                parcel.Barcode = page.Barcode ?? parcel.Barcode;
+                if (page.ParcelExternalId is null)
+                    marketplaceOrder.LabelBarcode = page.Barcode ?? marketplaceOrder.LabelBarcode;
+                await StoreAsync(order, new LabelPage(page.Content, page.Kind), "application/pdf", labels, userId, ct, parcel);
+            }
         }
     }
 
@@ -502,19 +520,18 @@ public class MarketplaceLabelService(
         foreach (var reason in reasons)
         {
             bucket.Add(reason.PostingNumber);
-            PostingParcel(byPostingNumber[reason.PostingNumber]).LabelError = AppProblems.MakeError(code,
-                string.IsNullOrWhiteSpace(reason.Message)
-                    ? "The marketplace has not produced this label yet."
-                    : reason.Message);
+            foreach (var parcel in byPostingNumber[reason.PostingNumber].MarketplaceOrder!.Parcels)
+                parcel.LabelError = AppProblems.MakeError(code, string.IsNullOrWhiteSpace(reason.Message)
+                    ? "The marketplace has not produced this label yet." : reason.Message);
         }
 
         await db.SaveChangesAsync(ct);
     }
 
     private async Task StoreAsync(Order order, LabelPage page, string contentType,
-        Dictionary<Guid, LabelPage> labels, Guid? userId, CancellationToken ct)
+        Dictionary<Guid, LabelPage> labels, Guid? userId, CancellationToken ct, MarketplaceParcel? targetParcel = null)
     {
-        var parcel = PostingParcel(order);
+        var parcel = targetParcel ?? PostingParcel(order);
 
         // The DataFile row commits before LabelFileId is set. A crash in between leaves an orphan that
         // the file GC reclaims after OrphanTtlHours — self-healing, so no transaction is needed. The

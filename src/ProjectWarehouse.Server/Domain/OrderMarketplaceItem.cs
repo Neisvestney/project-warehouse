@@ -22,6 +22,7 @@ public class OrderMarketplaceItem : IHasIdentity
     public CatalogItem? CatalogItem { get; set; }
 
     public int Quantity { get; set; }
+    public string? ExternalItemId { get; set; }
 
     // ── Financials, as the marketplace last reported them ─────────────────────
     // Ozon does not state whether these are per unit or per line; they are stored verbatim, and Quantity

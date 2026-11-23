@@ -5,6 +5,7 @@ declare module "@mui/material/styles" {
   interface Palette {
     ozon: Palette["primary"];
     wb: Palette["primary"];
+    ym: Palette["primary"];
     itemStandard: Palette["primary"];
     itemUnit: Palette["primary"];
     itemProductGroup: Palette["primary"];
@@ -14,6 +15,7 @@ declare module "@mui/material/styles" {
   interface PaletteOptions {
     ozon?: PaletteOptions["primary"];
     wb?: PaletteOptions["primary"];
+    ym?: PaletteOptions["primary"];
     itemStandard?: PaletteOptions["primary"];
     itemUnit?: PaletteOptions["primary"];
     itemProductGroup?: PaletteOptions["primary"];
@@ -26,6 +28,7 @@ declare module "@mui/material/Chip" {
   interface ChipPropsColorOverrides {
     ozon: true;
     wb: true;
+    ym: true;
     itemStandard: true;
     itemUnit: true;
     itemProductGroup: true;

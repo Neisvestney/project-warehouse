@@ -1,15 +1,9 @@
 import {Chip} from "@mui/material";
-import type {MarketplaceType} from "@/api/types.gen";
+import {MARKETPLACE_TYPE_COLORS} from "@/components/marketplace/marketplaceUtils";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import {ORDER_TYPE_COLORS} from "@/components/orders/orderUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {type ChannelRef, channelLabel} from "@/components/analytics/analyticsFormat";
-
-// Duplicated from the settings tree on purpose: analytics must not import from it
-const MARKETPLACE_CHIP_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
-  ozon: "ozon",
-  wildberries: "wb",
-};
 
 function ChannelChip({row}: {row: ChannelRef}) {
   // Without the right the integration page answers «Нет доступа», so the chip stays a plain label
@@ -27,7 +21,7 @@ function ChannelChip({row}: {row: ChannelRef}) {
       <Chip
         size="small"
         label={channelLabel(row)}
-        color={MARKETPLACE_CHIP_COLORS[row.marketplaceType]}
+        color={MARKETPLACE_TYPE_COLORS[row.marketplaceType]}
       />
     );
   if (row.kind === "direct")

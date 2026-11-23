@@ -25,6 +25,7 @@ public class MarketplaceReturnDto : IHasIdentity
     public MarketplaceLossReason? ReasonCategory { get; init; }
 
     public string? RawStatus { get; init; }
+    public string? RawRefundStatus { get; init; }
     public string? StatusName { get; init; }
     public DateTime? StatusChangedAt { get; init; }
     public bool IsCancelled { get; init; }

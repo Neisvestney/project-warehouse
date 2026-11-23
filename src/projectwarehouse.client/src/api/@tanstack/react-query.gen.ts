@@ -58,6 +58,7 @@ import {
   marketplacesAutoMapCards,
   marketplacesCreateAccount,
   marketplacesDeleteAccount,
+  marketplacesDiscoverYandexCampaigns,
   marketplacesGetAccount,
   marketplacesGetAccounts,
   marketplacesGetAccountsShort,
@@ -385,6 +386,9 @@ import type {
   MarketplacesDeleteAccountData,
   MarketplacesDeleteAccountError,
   MarketplacesDeleteAccountResponse,
+  MarketplacesDiscoverYandexCampaignsData,
+  MarketplacesDiscoverYandexCampaignsError,
+  MarketplacesDiscoverYandexCampaignsResponse,
   MarketplacesGetAccountData,
   MarketplacesGetAccountError,
   MarketplacesGetAccountResponse,
@@ -3015,6 +3019,33 @@ export const marketplacesUpdateAccountMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await marketplacesUpdateAccount({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Requires integrations.edit. Returns 422 marketplaceCredentialsInvalid or marketplaceApiError.
+ */
+export const marketplacesDiscoverYandexCampaignsMutation = (
+  options?: Partial<Options<MarketplacesDiscoverYandexCampaignsData>>,
+): UseMutationOptions<
+  MarketplacesDiscoverYandexCampaignsResponse,
+  MarketplacesDiscoverYandexCampaignsError,
+  Options<MarketplacesDiscoverYandexCampaignsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesDiscoverYandexCampaignsResponse,
+    MarketplacesDiscoverYandexCampaignsError,
+    Options<MarketplacesDiscoverYandexCampaignsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesDiscoverYandexCampaigns({
         ...options,
         ...fnOptions,
         throwOnError: true,

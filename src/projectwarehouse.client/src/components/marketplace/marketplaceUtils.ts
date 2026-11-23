@@ -16,19 +16,22 @@ import type {
 export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceType, string> = {
   ozon: "Ozon",
   wildberries: "Wildberries",
+  yandexMarket: "Яндекс Маркет",
 };
 
-export const MARKETPLACE_TYPE_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
+export const MARKETPLACE_TYPE_COLORS: Record<MarketplaceType, "ozon" | "wb" | "ym"> = {
   ozon: "ozon",
   wildberries: "wb",
+  yandexMarket: "ym",
 };
 
 export const MARKETPLACE_TYPE_RANK: Record<MarketplaceType, number> = {
   ozon: 0,
   wildberries: 1,
+  yandexMarket: 2,
 };
 
-/** Ozon shops first, then Wildberries, by name within a marketplace — the order the server lists them in. */
+// Match the server's marketplace order, then sort shops by name.
 export function compareMarketplaceAccounts(
   a: {type: MarketplaceType; name: string},
   b: {type: MarketplaceType; name: string},
@@ -42,11 +45,13 @@ export function compareMarketplaceAccounts(
 export const MARKETPLACE_REQUIRES_CLIENT_ID: Record<MarketplaceType, boolean> = {
   ozon: true,
   wildberries: false,
+  yandexMarket: false,
 };
 
 export const MARKETPLACE_API_KEY_LABELS: Record<MarketplaceType, string> = {
   ozon: "Api-Key",
   wildberries: "Токен",
+  yandexMarket: "Api-Key",
 };
 
 export const SYNC_STATUS_LABELS: Record<MarketplaceSyncStatus, string> = {

@@ -12,9 +12,13 @@ import {
   Typography,
 } from "@mui/material";
 import {Controller, useForm, useWatch} from "react-hook-form";
+import {useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {useNavigate} from "react-router";
-import {marketplacesCreateAccountMutation} from "@/api/@tanstack/react-query.gen";
+import {
+  marketplacesCreateAccountMutation,
+  marketplacesDiscoverYandexCampaignsMutation,
+} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
@@ -27,7 +31,7 @@ import {
   MARKETPLACE_REQUIRES_CLIENT_ID,
   MARKETPLACE_TYPE_LABELS,
 } from "@/components/marketplace/marketplaceUtils.ts";
-import type {MarketplaceType} from "@/api/types.gen";
+import type {MarketplaceType, YandexMarketCampaignDto} from "@/api/types.gen";
 
 type CreateFormValues = {
   type: MarketplaceType;
@@ -36,12 +40,17 @@ type CreateFormValues = {
   apiKey: string;
   syncIntervalMinutes: number;
   isActive: boolean;
+  campaignId: string;
 };
 
-const AVAILABLE_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
+const AVAILABLE_TYPES: MarketplaceType[] = ["ozon", "wildberries", "yandexMarket"];
 
 function MarketplaceAccountCreatePage() {
   const navigate = useNavigate();
+  const [campaignResult, setCampaignResult] = useState<{
+    key: string;
+    campaigns: YandexMarketCampaignDto[];
+  } | null>(null);
 
   const form = useForm<CreateFormValues>({
     defaultValues: {
@@ -51,6 +60,7 @@ function MarketplaceAccountCreatePage() {
       apiKey: "",
       syncIntervalMinutes: 30,
       isActive: true,
+      campaignId: "",
     },
   });
   const {setApiError} = useRhfApiErrors(form);
@@ -66,22 +76,40 @@ function MarketplaceAccountCreatePage() {
     onSuccess: (data) => navigate(`/marketplaces/${data.id}`),
     onError: setApiError,
   });
+  const campaignMutation = useMutation({
+    ...marketplacesDiscoverYandexCampaignsMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: (data, variables) => {
+      setCampaignResult({key: variables.body.apiKey, campaigns: data});
+      form.setValue("campaignId", "");
+    },
+    onError: setApiError,
+  });
+  const campaigns = campaignResult?.key === apiKey ? campaignResult.campaigns : [];
 
   const requiresClientId = MARKETPLACE_REQUIRES_CLIENT_ID[type];
 
-  const onSubmit = form.handleSubmit((values) =>
+  const onSubmit = form.handleSubmit((values) => {
+    if (
+      values.type === "yandexMarket" &&
+      !campaigns.some((c) => c.campaignId === Number(values.campaignId))
+    ) {
+      form.setError("campaignId", {message: "Загрузите кампании и выберите магазин"});
+      return;
+    }
     mutation.mutate({
       body: {
         type: values.type,
         clientId: (MARKETPLACE_REQUIRES_CLIENT_ID[values.type] && values.clientId) || null,
         shortName: values.shortName.trim() || null,
         apiKey: values.apiKey,
+        campaignId: values.type === "yandexMarket" ? Number(values.campaignId) : null,
         // input[type=number] отдаёт строку — сервер ждёт int и строку не примет
         syncIntervalMinutes: Number(values.syncIntervalMinutes),
         isActive: values.isActive,
       },
-    }),
-  );
+    });
+  });
 
   return (
     <Stack spacing={2}>
@@ -131,6 +159,64 @@ function MarketplaceAccountCreatePage() {
               disabled={mutation.isPending}
               fullWidth
             />
+            {type === "yandexMarket" && (
+              <Stack spacing={1}>
+                <Button
+                  variant="outlined"
+                  disabled={!apiKey.trim() || campaignMutation.isPending || mutation.isPending}
+                  onClick={() => {
+                    form.clearErrors();
+                    campaignMutation.mutate({body: {apiKey}});
+                  }}
+                >
+                  {campaignMutation.isPending ? "Загрузка кампаний…" : "Загрузить кампании"}
+                </Button>
+                <Controller
+                  control={form.control}
+                  name="campaignId"
+                  render={({field, fieldState}) => (
+                    <Stack spacing={0.5}>
+                      <Typography variant="body2" color="text.secondary">
+                        Кампания FBS
+                      </Typography>
+                      <Select
+                        {...field}
+                        value={
+                          campaigns.some((c) => String(c.campaignId) === field.value)
+                            ? field.value
+                            : ""
+                        }
+                        displayEmpty
+                        size="small"
+                        disabled={campaigns.length === 0 || mutation.isPending}
+                        error={!!fieldState.error}
+                      >
+                        <MenuItem value="" disabled>
+                          Выберите магазин
+                        </MenuItem>
+                        {campaigns.map((c) => (
+                          <MenuItem key={c.campaignId} value={String(c.campaignId)}>
+                            {c.name} · {c.campaignId} · {c.businessName}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {fieldState.error && (
+                        <Typography color="error" variant="caption">
+                          {fieldState.error.message}
+                        </Typography>
+                      )}
+                    </Stack>
+                  )}
+                />
+                {campaignResult?.key === apiKey && campaigns.length === 0 && (
+                  <Alert severity="info">У ключа нет доступных кампаний FBS.</Alert>
+                )}
+                <Typography variant="body2" color="text.secondary">
+                  Каждый магазин подключается отдельно. Кампанию подключённого магазина изменить
+                  нельзя.
+                </Typography>
+              </Stack>
+            )}
             <FormTextField
               control={form.control}
               name="shortName"

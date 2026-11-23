@@ -9,7 +9,9 @@
     "POST /v3/businesses/{businessId}/offers/stocks",
     "GET /v2/campaigns/{campaignId}/orders/{orderId}/delivery/labels",
     "GET /v2/campaigns/{campaignId}/orders/{orderId}/delivery/labels/data",
-    "GET /v2/campaigns/{campaignId}/returns"
+    "GET /v2/campaigns/{campaignId}/returns",
+    "POST /v2/reports/united-netting/generate",
+    "GET /v2/reports/info/{reportId}"
   ],
   "binaryResponses": [
     "GET /v2/campaigns/{campaignId}/orders/{orderId}/delivery/labels"

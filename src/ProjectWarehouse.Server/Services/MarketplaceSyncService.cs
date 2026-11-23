@@ -75,7 +75,8 @@ public class MarketplaceSyncService(
         }
 
         var provider = providers.Get(account.Type);
-        var credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey);
+        var credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey,
+            account.ExternalBusinessId, account.ExternalCampaignId);
         var before = mapper.Map<MarketplaceAccountDto>(account);
 
         try
@@ -225,10 +226,13 @@ public class MarketplaceSyncService(
             if (!string.IsNullOrWhiteSpace(info.Name))
                 account.Name = info.Name;
 
-            account.CompanyLegalName = info.LegalName;
-            account.Inn = info.Inn;
-            account.Ogrn = info.Ogrn;
-            account.OwnershipForm = info.OwnershipForm;
+            if (info.HasLegalIdentity)
+            {
+                account.CompanyLegalName = info.LegalName;
+                account.Inn = info.Inn;
+                account.Ogrn = info.Ogrn;
+                account.OwnershipForm = info.OwnershipForm;
+            }
 
             await db.SaveChangesAsync(ct);
 

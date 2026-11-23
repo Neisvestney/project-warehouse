@@ -67,6 +67,7 @@ public class MarketplaceReturn : IHasIdentity
 
     // The raw vocabulary is long and keeps growing, so it is not mapped; only IsCancelled is derived from it
     public string? RawStatus { get; set; }
+    public string? RawRefundStatus { get; set; }
     public string? StatusName { get; set; }
     public DateTime? StatusChangedAt { get; set; }
 

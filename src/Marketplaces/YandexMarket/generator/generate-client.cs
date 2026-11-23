@@ -126,7 +126,9 @@ static void Trim(string specDirectory, string trimmedPath, string whitelistPath)
     {
         // YM reads are GETs or POSTs named get*; a write slipping into the whitelist must be a deliberate edit here
         var operationId = operation["operationId"]?.GetValue<string>() ?? "";
-        if (method != "get" && !operationId.StartsWith("get", StringComparison.Ordinal))
+        if (method != "get" && !operationId.StartsWith("get", StringComparison.Ordinal)
+            && !(method == "post" && path == "/v2/reports/united-netting/generate"
+                && operationId == "generateUnitedNettingReport"))
             throw new InvalidOperationException($"{method.ToUpperInvariant()} {path} ({operationId}) does not look like a read");
         if (binaryResponses.Contains($"{method.ToUpperInvariant()} {path}"))
             SpecSanitizer.NormalizeBinaryResponse(path, operation);

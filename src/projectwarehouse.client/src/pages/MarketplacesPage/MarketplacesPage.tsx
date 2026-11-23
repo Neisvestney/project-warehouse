@@ -46,7 +46,7 @@ const SORT_COLUMNS: {key: MarketplaceAccountSortBy; label: string}[] = [
   {key: "lastSyncAt", label: "Синхронизация"},
 ];
 
-const ALL_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
+const ALL_TYPES: MarketplaceType[] = ["ozon", "wildberries", "yandexMarket"];
 
 function MarketplacesPage() {
   const canEdit = useHasPermission("integrations.edit");

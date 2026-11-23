@@ -9,4 +9,5 @@ public record ExternalSellerInfo(
     string? LegalName,
     string? Inn,
     string? Ogrn,
-    string? OwnershipForm);
+    string? OwnershipForm,
+    bool HasLegalIdentity = true);

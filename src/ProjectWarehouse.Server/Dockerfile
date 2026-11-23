@@ -32,6 +32,7 @@ WORKDIR /src
 COPY ["src/ProjectWarehouse.Server/ProjectWarehouse.Server.csproj", "src/ProjectWarehouse.Server/"]
 COPY ["src/Marketplaces/Ozon/Neisvestney.Marketplaces.Ozon/Neisvestney.Marketplaces.Ozon.csproj", "src/Marketplaces/Ozon/Neisvestney.Marketplaces.Ozon/"]
 COPY ["src/Marketplaces/Wildberries/Neisvestney.Marketplaces.Wildberries/Neisvestney.Marketplaces.Wildberries.csproj", "src/Marketplaces/Wildberries/Neisvestney.Marketplaces.Wildberries/"]
+COPY ["src/Marketplaces/YandexMarket/Neisvestney.Marketplaces.YandexMarket/Neisvestney.Marketplaces.YandexMarket.csproj", "src/Marketplaces/YandexMarket/Neisvestney.Marketplaces.YandexMarket/"]
 COPY ["src/projectwarehouse.client/projectwarehouse.client.esproj", "src/projectwarehouse.client/"]
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "src/ProjectWarehouse.Server/ProjectWarehouse.Server.csproj"

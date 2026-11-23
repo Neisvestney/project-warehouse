@@ -295,7 +295,8 @@ public class MarketplaceReturnSyncService(
                 o.Order.MarketplaceItems
                     .Select(i => new ItemRow(i.Id, i.CatalogItemId,
                         i.MarketplaceCard != null ? i.MarketplaceCard.Sku : null,
-                        i.MarketplaceCard != null ? i.MarketplaceCard.OfferId : ""))
+                        i.MarketplaceCard != null ? i.MarketplaceCard.OfferId : "",
+                        i.CustomerPrice ?? i.Price, i.CustomerCurrencyCode ?? i.CurrencyCode))
                     .ToList()))
             .ToDictionaryAsync(o => o.PostingNumber, ct);
     }
@@ -348,6 +349,11 @@ public class MarketplaceReturnSyncService(
         target.OrderId = order.OrderId;
         target.OrderMarketplaceItemId = line?.Id;
         target.CatalogItemId = line?.CatalogItemId;
+        if (target.RawKind is "RETURN" or "UNREDEEMED")
+        {
+            target.Price = line?.Price;
+            target.CurrencyCode = line?.CurrencyCode;
+        }
         return true;
     }
 
@@ -377,8 +383,9 @@ public class MarketplaceReturnSyncService(
             : keepProduct && source.OfferId.Length == 0 ? target.OfferId
             : source.OfferId;
         var rawKind = reversed ? source.RawKind ?? target.RawKind : source.RawKind;
-        var price = reversed ? source.Price ?? target.Price : source.Price;
-        var currencyCode = reversed ? source.CurrencyCode ?? target.CurrencyCode : source.CurrencyCode;
+        var keepPrice = reversed || source.RawKind is "RETURN" or "UNREDEEMED";
+        var price = keepPrice ? source.Price ?? target.Price : source.Price;
+        var currencyCode = keepPrice ? source.CurrencyCode ?? target.CurrencyCode : source.CurrencyCode;
         var reasonCategory = reversed ? source.ReasonCategory ?? target.ReasonCategory : source.ReasonCategory;
 
         var changed =
@@ -396,6 +403,7 @@ public class MarketplaceReturnSyncService(
             || target.ReasonCategory != reasonCategory
             || target.RawReasonCode != source.RawReasonCode
             || target.RawStatus != source.RawStatus
+            || target.RawRefundStatus != source.RawRefundStatus
             || target.StatusName != source.StatusName
             || target.IsCancelled != isCancelled
             || target.StatusChangedAt != source.StatusChangedAt
@@ -421,6 +429,7 @@ public class MarketplaceReturnSyncService(
         target.ReasonCategory = reasonCategory;
         target.RawReasonCode = source.RawReasonCode;
         target.RawStatus = source.RawStatus;
+        target.RawRefundStatus = source.RawRefundStatus;
         target.StatusName = source.StatusName;
         target.IsCancelled = isCancelled;
         target.StatusChangedAt = source.StatusChangedAt;
@@ -438,5 +447,6 @@ public class MarketplaceReturnSyncService(
 
     private sealed record OrderRow(string PostingNumber, Guid OrderId, OrderType Type, List<ItemRow> Items);
 
-    private sealed record ItemRow(Guid Id, Guid? CatalogItemId, string? Sku, string OfferId);
+    private sealed record ItemRow(Guid Id, Guid? CatalogItemId, string? Sku, string OfferId,
+        decimal? Price, string? CurrencyCode);
 }

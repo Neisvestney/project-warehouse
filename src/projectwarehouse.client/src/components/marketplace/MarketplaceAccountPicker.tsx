@@ -3,7 +3,7 @@ import {Button, Checkbox, FormControlLabel, Stack} from "@mui/material";
 import type {MarketplaceType} from "@/api/types.gen";
 import {MARKETPLACE_TYPE_LABELS} from "@/components/marketplace/marketplaceUtils.ts";
 
-const SHORTCUT_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
+const SHORTCUT_TYPES: MarketplaceType[] = ["ozon", "wildberries", "yandexMarket"];
 
 export interface PickableMarketplaceAccount {
   id: string;

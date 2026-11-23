@@ -154,6 +154,9 @@ import type {
   MarketplacesDeleteAccountData,
   MarketplacesDeleteAccountErrors,
   MarketplacesDeleteAccountResponses,
+  MarketplacesDiscoverYandexCampaignsData,
+  MarketplacesDiscoverYandexCampaignsErrors,
+  MarketplacesDiscoverYandexCampaignsResponses,
   MarketplacesGetAccountData,
   MarketplacesGetAccountErrors,
   MarketplacesGetAccountResponses,
@@ -1909,6 +1912,29 @@ export const marketplacesUpdateAccount = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/integrations/marketplaces/accounts/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Requires integrations.edit. Returns 422 marketplaceCredentialsInvalid or marketplaceApiError.
+ */
+export const marketplacesDiscoverYandexCampaigns = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesDiscoverYandexCampaignsData, ThrowOnError>,
+): RequestResult<
+  MarketplacesDiscoverYandexCampaignsResponses,
+  MarketplacesDiscoverYandexCampaignsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    MarketplacesDiscoverYandexCampaignsResponses,
+    MarketplacesDiscoverYandexCampaignsErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/yandex-market/campaigns",
     ...options,
     headers: {
       "Content-Type": "application/json",

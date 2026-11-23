@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
@@ -16,7 +17,9 @@ public class MarketplaceAccrualSyncService(
     ApplicationDbContext db,
     IRealtimeNotifier realtime,
     IOptions<MarketplacesOptions> options,
-    IMarketplaceReturnSyncService returnSync) : IMarketplaceAccrualSyncService
+    IMarketplaceReturnSyncService returnSync,
+    IEntityLockService locks,
+    IOrganizationService organizations) : IMarketplaceAccrualSyncService
 {
     private const int RelinkBatchSize = 500;
 
@@ -38,6 +41,7 @@ public class MarketplaceAccrualSyncService(
             : TimeZoneInfo.CreateCustomTimeZone("MSK", TimeSpan.FromHours(3), "MSK", "MSK");
 
     private readonly OzonOptions _ozon = options.Value.Ozon;
+    private readonly YandexMarketOptions _yandex = options.Value.YandexMarket;
 
     public async Task SyncAccrualsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
@@ -49,23 +53,24 @@ public class MarketplaceAccrualSyncService(
 
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
+        var yandex = account.Type == MarketplaceType.YandexMarket;
         var fullPass = account.AccrualsFullPassAt is not { } fullPassAt
-                       || fullPassAt <= now.AddHours(-_ozon.AccrualsFullPassIntervalHours);
+                       || fullPassAt <= now.AddHours(-(yandex ? _yandex.AccrualsFullPassIntervalHours : _ozon.AccrualsFullPassIntervalHours));
 
         // the day before the last run, so a run cut short at midnight or a paused account leaves no gap
         var from = account.AccrualsSyncedAt is { } syncedAt
             ? DateOnly.FromDateTime(syncedAt).AddDays(-1)
-            : today.AddDays(-_ozon.AccrualsImportWindowPastDays);
-        var overlapStart = today.AddDays(-_ozon.AccrualsOverlapDays);
+            : today.AddDays(-(yandex ? _yandex.ImportWindowPastDays : _ozon.AccrualsImportWindowPastDays));
+        var overlapStart = today.AddDays(-(yandex ? _yandex.AccrualsOverlapDays : _ozon.AccrualsOverlapDays));
         if (fullPass && overlapStart < from)
             from = overlapStart;
 
         // a day ahead of UTC: the marketplace's day may already have started, the provider cuts off its future
-        await ImportAsync(provider.FetchAccrualsAsync(credentials, from, today.AddDays(1), ct), account, run, ct);
+        var completed = await ImportAsync(provider.FetchAccrualsAsync(credentials, from, today.AddDays(1), ct), account, run, ct);
 
         // only once the whole period is through, for the same reason as FboPostingsSyncedAt
-        account.AccrualsSyncedAt = now;
-        if (fullPass)
+        if (completed) account.AccrualsSyncedAt = now;
+        if (completed && fullPass)
             account.AccrualsFullPassAt = now;
         await db.SaveChangesAsync(ct);
 
@@ -238,12 +243,45 @@ public class MarketplaceAccrualSyncService(
                 : "The marketplace refused the buyout report with a 429; later runs read the rest.",
         };
 
-    private async Task ImportAsync(IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> pages,
+    private async Task<bool> ImportAsync(IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> pages,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
-        await foreach (var fetched in pages)
-            await ImportPageAsync(fetched, account, run, ct);
+        var yandex = account.Type == MarketplaceType.YandexMarket;
+        if (yandex && account.AccrualsPausedUntil > DateTime.UtcNow)
+        {
+            WarnAccrualsPaused(run);
+            return false;
+        }
+        try
+        {
+            await foreach (var fetched in pages)
+            {
+                if (yandex && fetched.Select(a => a.SellerInn).FirstOrDefault(i => !string.IsNullOrWhiteSpace(i)) is { } inn)
+                    await db.Database.ExecuteInTransactionAsync("marketplace.sync.seller_inn", async () =>
+                    {
+                        await locks.LockAsync<MarketplaceAccount>(account.Id, ct, IEntityLockService.BackgroundTimeout);
+                        await db.Entry(account).ReloadAsync(ct);
+                        account.Inn = inn;
+                        await db.SaveChangesAsync(ct);
+                        await organizations.LinkByInnAsync(account, ct, IEntityLockService.BackgroundTimeout);
+                    }, ct);
+                await ImportPageAsync(fetched.Where(a => !a.IsMetadata).ToArray(), account, run, ct);
+            }
+            if (yandex) account.AccrualsPausedUntil = null;
+            return true;
+        }
+        catch (MarketplaceApiException ex) when (yandex && ex.StatusCode == 420)
+        {
+            account.AccrualsPausedUntil = DateTime.UtcNow.AddMilliseconds(Math.Max(120000, _yandex.ReportRequestDelayMs));
+            WarnAccrualsPaused(run);
+            await db.SaveChangesAsync(ct);
+            return false;
+        }
     }
+
+    private static void WarnAccrualsPaused(MarketplaceSyncRun run) => run.Warning =
+        AppProblems.MakeError(ErrorCode.MarketplaceAccrualsPaused,
+            "Yandex Market report quota is paused; subsequent runs resume the unread period.");
 
     /// <summary>Writes one page and saves it together with whatever else the account has pending.</summary>
     private async Task ImportPageAsync(IReadOnlyList<ExternalAccrual> fetched, MarketplaceAccount account,
@@ -728,7 +766,8 @@ public class MarketplaceAccrualSyncService(
                 o.OrderId,
                 o.Order.MarketplaceItems
                     .Where(i => i.MarketplaceCard != null)
-                    .Select(i => new ItemRow(i.Id, i.CatalogItemId, i.MarketplaceCard!.Sku))
+                    .Select(i => new ItemRow(i.Id, i.CatalogItemId,
+                        o.MarketplaceAccount.Type == MarketplaceType.YandexMarket ? i.MarketplaceCard!.OfferId : i.MarketplaceCard!.Sku))
                     .ToList()))
             .ToListAsync(ct);
 

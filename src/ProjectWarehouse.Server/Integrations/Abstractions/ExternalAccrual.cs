@@ -12,7 +12,9 @@ public record ExternalAccrual(
     MarketplaceAccrualSource Source = MarketplaceAccrualSource.AccrualJournal,
     string? Rid = null,
     string? ExemplarId = null,
-    DateTime? OccurredAt = null);
+    DateTime? OccurredAt = null,
+    string? SellerInn = null,
+    bool IsMetadata = false);
 
 public record ExternalAccrualLine(
     MarketplaceAccrualCategory Category,

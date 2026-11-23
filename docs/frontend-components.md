@@ -1189,6 +1189,10 @@ a cross-origin link.
 date/duration/price formatters. It sits in `components/` because the marketplace pages, `MarketplaceAccountChip`
 and `appEntityUtils` all read it.
 
+Yandex Market connection loads available FBS campaigns for the entered key and requires explicit selection.
+Editing the key invalidates that list. Each account keeps one immutable campaign; the overview shows its business
+and campaign IDs, and credential rotation must retain access to both.
+
 `hasCapability(capabilities, flag)` exists because `MarketplaceCapabilities` is a **`[Flags]` enum**:
 `JsonStringEnumConverter` sends a combination as one comma-separated string (`"warehouses, cards, sellerInfo"`),
 which the generated union of single values does not describe. **Never compare `capabilities` with `===`.**
@@ -1639,7 +1643,7 @@ Call sites: `OrderMetaSection` («Магазин»), the `OrdersAssemblyPage` or
 
 ### `components/marketplace/MarketplaceAccountPicker`
 
-Checkbox list of marketplace accounts with «Все Ozon» / «Все Wildberries» shortcuts (shown only for types
+Checkbox list of marketplace accounts with «Все Ozon» / «Все Wildberries» / «Все Яндекс Маркет» shortcuts (shown only for types
 present in the list). Generic over any `{id, name, type}` row; the selection is a controlled `Set<string>`
 (`selected` / `onChange`). `renderExtra(account)` puts per-row content at the end of the row, such as a warning
 icon. Used by `SyncOrdersDialog` and `AutoMapCardsDialog`.

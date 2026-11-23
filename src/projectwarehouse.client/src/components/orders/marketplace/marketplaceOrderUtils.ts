@@ -157,9 +157,10 @@ export function formatLossReason(reason: MarketplaceLossReason): string {
 export const MARKETPLACE_LABELS: Record<MarketplaceType, string> = {
   ozon: "Ozon",
   wildberries: "Wildberries",
+  yandexMarket: "Яндекс Маркет",
 };
 
-export const ALL_MARKETPLACE_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
+export const ALL_MARKETPLACE_TYPES: MarketplaceType[] = ["ozon", "wildberries", "yandexMarket"];
 
 export const RUN_STATUS_LABELS: Record<MarketplaceSyncStatus, string> = {
   running: "Выполняется",

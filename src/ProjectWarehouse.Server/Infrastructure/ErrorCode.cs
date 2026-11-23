@@ -134,6 +134,8 @@ public enum ErrorCode
     MarketplaceWarehouseNotFound = 87,
     MarketplaceCardNotFound = 88,
     MarketplaceSupplyNotFound = 171,
+    MarketplaceCampaignDuplicate = 173,
+    MarketplaceAccrualsPaused = 174,
     MarketplaceCardMappingTypeNotAllowed = 85,
     MarketplaceCardMappingArchivedItem = 86,
     MarketplaceOrderNotFromMarketplace = 113,

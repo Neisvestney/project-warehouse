@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
@@ -37,7 +38,8 @@ public class MarketplacesController(
     IOptions<MarketplacesOptions> options,
     IChangeLogService changeLog,
     IChangeLogService<MarketplaceAccountDto> accountChangeLog,
-    IChangeLogService<MarketplaceCardDto> cardChangeLog) : AppControllerBase
+    IChangeLogService<MarketplaceCardDto> cardChangeLog,
+    IYandexMarketConnectionService yandexConnection) : AppControllerBase
 {
     // ---------- accounts ----------
 
@@ -134,6 +136,17 @@ public class MarketplacesController(
         return Ok(await ToDetailDtoAsync(account, ct));
     }
 
+    /// <remarks>Requires integrations.edit. Returns 422 marketplaceCredentialsInvalid or marketplaceApiError.</remarks>
+    [HttpPost("yandex-market/campaigns")]
+    [Authorize(Policy = Permissions.Integrations.Edit)]
+    [ProducesResponseType<List<YandexMarketCampaignDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> DiscoverYandexCampaigns([FromBody] DiscoverYandexMarketCampaignsRequest request,
+        CancellationToken ct)
+    {
+        var result = await yandexConnection.DiscoverAsync(request.ApiKey, ct);
+        return result.Problem is not null ? Problem(result.Problem) : Ok(result.Campaigns);
+    }
+
     /// <summary>Connects a marketplace account. The key is encrypted on write and never returned.</summary>
     /// <remarks>
     /// Body: <c>CreateMarketplaceAccountRequest</c> — <c>type</c>, <c>apiKey</c>, <c>clientId</c>,
@@ -159,6 +172,18 @@ public class MarketplacesController(
             return UnprocessableEntity(nameof(request.ClientId), ErrorCode.MarketplaceClientIdRequired,
                 "This marketplace requires a client id.");
 
+        YandexMarketCampaignDto? campaign = null;
+        if (request.Type == MarketplaceType.YandexMarket)
+        {
+            var selection = await yandexConnection.ValidateAsync(request.ApiKey, request.CampaignId, null, ct);
+            if (selection.Problem is not null) return Problem(selection.Problem);
+            campaign = selection.Campaign!;
+            if (await db.MarketplaceAccounts.AnyAsync(a => a.Type == MarketplaceType.YandexMarket
+                    && a.ExternalCampaignId == campaign.CampaignId, ct))
+                return ConflictField("campaignId", ErrorCode.MarketplaceCampaignDuplicate,
+                    "This Yandex Market campaign is already connected.");
+        }
+
         var now = DateTime.UtcNow;
         var account = new MarketplaceAccount
         {
@@ -168,7 +193,9 @@ public class MarketplacesController(
             Name = $"{request.Type} ••••{protector.Last4(request.ApiKey)}",
             ShortName = NormalizeShortName(request.ShortName),
             IsActive = request.IsActive,
-            ExternalClientId = request.ClientId,
+            ExternalClientId = provider.RequiresClientId ? request.ClientId : null,
+            ExternalBusinessId = campaign?.BusinessId,
+            ExternalCampaignId = campaign?.CampaignId,
             ApiKeyProtected = protector.Protect(request.ApiKey),
             ApiKeyLast4 = protector.Last4(request.ApiKey),
             ApiKeyUpdatedAt = now,
@@ -178,7 +205,13 @@ public class MarketplacesController(
         };
 
         db.MarketplaceAccounts.Add(account);
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505",
+                   ConstraintName: "IX_MarketplaceAccounts_Type_ExternalCampaignId" })
+        {
+            return ConflictField("campaignId", ErrorCode.MarketplaceCampaignDuplicate,
+                "This Yandex Market campaign is already connected.");
+        }
 
         var dto = await ToDetailDtoAsync(account, ct);
         await accountChangeLog.CompareAndSaveToChangelog(null, dto, MarketplaceActions.AccountCreated,
@@ -223,7 +256,13 @@ public class MarketplacesController(
 
         var before = await ToDetailDtoAsync(account, ct);
 
-        account.ExternalClientId = request.ClientId;
+        if (account.Type == MarketplaceType.YandexMarket && !string.IsNullOrWhiteSpace(request.ApiKey))
+        {
+            var selection = await yandexConnection.ValidateAsync(request.ApiKey, account.ExternalCampaignId,
+                account.ExternalBusinessId, ct);
+            if (selection.Problem is not null) return Problem(selection.Problem);
+        }
+        account.ExternalClientId = provider.RequiresClientId ? request.ClientId : null;
         account.ShortName = NormalizeShortName(request.ShortName);
         account.IsActive = request.IsActive;
         account.SyncIntervalMinutes = request.SyncIntervalMinutes;
@@ -395,7 +434,7 @@ public class MarketplacesController(
                     "The stored API key can no longer be decrypted — enter it again.");
 
             provider = providers.Get(account.Type);
-            credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey);
+            credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey, account.ExternalBusinessId, account.ExternalCampaignId);
         }
 
         try
@@ -542,7 +581,7 @@ public class MarketplacesController(
         try
         {
             var firstPostingAt = await provider.FetchEarliestPostingDateAsync(
-                new MarketplaceCredentials(account.ExternalClientId, apiKey), ct);
+                new MarketplaceCredentials(account.ExternalClientId, apiKey, account.ExternalBusinessId, account.ExternalCampaignId), ct);
 
             return Ok(new BackfillBoundsDto { FirstOrderAt = firstOrderAt, FirstPostingAt = firstPostingAt });
         }

@@ -19,6 +19,9 @@ public class MarketplaceAccountDto : IHasIdentity
 
     public bool IsActive { get; init; }
     public string? ExternalClientId { get; init; }
+    public long? ExternalBusinessId { get; init; }
+    public long? ExternalCampaignId { get; init; }
+    public DateTime? AccrualsPausedUntil { get; init; }
 
     public string? CompanyLegalName { get; init; }
     public string? Inn { get; init; }

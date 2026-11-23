@@ -23,4 +23,5 @@ public record ExternalPostingItem(
     decimal? Payout = null,
     string? CurrencyCode = null,
     decimal? CommissionAmount = null,
-    string? CommissionCurrencyCode = null);
+    string? CommissionCurrencyCode = null,
+    string? ExternalItemId = null);

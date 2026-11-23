@@ -28,4 +28,5 @@ public record ExternalReturn(
     DateTime? CompensationStatusChangedAt,
     string? SourceExternalId,
     string? ExemplarId,
-    DateOnly? RequestedOn = null);
+    DateOnly? RequestedOn = null,
+    string? RawRefundStatus = null);

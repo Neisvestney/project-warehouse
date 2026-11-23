@@ -37,4 +37,5 @@ public record ExternalLabelFailure(string PostingNumber, string? Message);
 /// A single-page PDF label of one posting, in the layout <paramref name="Kind"/> names, with the number
 /// printed on it when the marketplace states one.
 /// </summary>
-public record ExternalLabelPage(string PostingNumber, byte[] Content, LabelKind Kind, string? Barcode = null);
+public record ExternalLabelPage(string PostingNumber, byte[] Content, LabelKind Kind, string? Barcode = null,
+    string? ParcelExternalId = null);

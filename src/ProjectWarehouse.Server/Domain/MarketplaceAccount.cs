@@ -35,6 +35,10 @@ public class MarketplaceAccount : IHasIdentity
     /// <summary>Ozon Client-Id. Left null for providers that authenticate with a token alone.</summary>
     public string? ExternalClientId { get; set; }
 
+    public long? ExternalBusinessId { get; set; }
+    public long? ExternalCampaignId { get; set; }
+    public DateTime? AccrualsPausedUntil { get; set; }
+
     /// <summary>Api-Key ciphertext. Only IMarketplaceCredentialProtector may open it.</summary>
     public string ApiKeyProtected { get; set; } = null!;
 

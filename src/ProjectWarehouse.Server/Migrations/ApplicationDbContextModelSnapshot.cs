@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.14")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
@@ -799,6 +799,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("AccrualsFullPassAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("AccrualsPausedUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("AccrualsSyncedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -833,6 +836,12 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uuid");
+
+                    b.Property<long?>("ExternalBusinessId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("ExternalCampaignId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ExternalClientId")
                         .HasColumnType("text");
@@ -894,6 +903,10 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("OrganizationId");
 
                     b.HasIndex("Type");
+
+                    b.HasIndex("Type", "ExternalCampaignId")
+                        .IsUnique()
+                        .HasFilter("\"ExternalCampaignId\" IS NOT NULL");
 
                     b.ToTable("MarketplaceAccounts");
                 });
@@ -1347,6 +1360,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("RawReasonCode")
                         .HasColumnType("text");
 
+                    b.Property<string>("RawRefundStatus")
+                        .HasColumnType("text");
+
                     b.Property<string>("RawScheme")
                         .HasColumnType("text");
 
@@ -1756,6 +1772,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<decimal?>("DiscountValue")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("ExternalItemId")
+                        .HasColumnType("text");
 
                     b.Property<Guid?>("MarketplaceCardId")
                         .HasColumnType("uuid");

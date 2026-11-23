@@ -72,6 +72,7 @@ const theme = createTheme({
           dark: "#0041B8",
           contrastText: "#FFFFFF",
         },
+        ym: {main: "#FFCC00", light: "#FFDF60", dark: "#DBAF00", contrastText: "#211C00"},
         wb: {
           main: "#A70D73",
           light: "#C84BA0",
@@ -136,6 +137,12 @@ const theme = createTheme({
           light: "#84AFFF",
           dark: "#005BFF",
           contrastText: "#0A1020",
+        },
+        ym: {
+          main: "#FFD54F",
+          light: "#FFE082",
+          dark: "#FFCC00",
+          contrastText: "#211C00",
         },
         wb: {
           main: "#D45BAC",

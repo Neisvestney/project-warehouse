@@ -86,7 +86,7 @@ public class WildberriesAccrualTests(TokenDatabase database) : IClassFixture<Tok
         var options = Options.Create(new MarketplacesOptions());
         var realtime = new SilentRealtime();
         var service = new MarketplaceAccrualSyncService(db, realtime, options,
-            new MarketplaceReturnSyncService(db, realtime, options));
+            new MarketplaceReturnSyncService(db, realtime, options), null!, null!);
         var credentials = new MarketplaceCredentials(null, "unused");
         var from = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc);
 

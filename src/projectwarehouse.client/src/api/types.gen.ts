@@ -1269,6 +1269,7 @@ export type CreateMarketplaceAccountRequest = {
    * Required when the provider declares RequiresClientId.
    */
   clientId?: null | string;
+  campaignId?: null | number;
   shortName?: null | string;
   apiKey: string;
   syncIntervalMinutes?: null | number;
@@ -1415,6 +1416,10 @@ export type DataFileLinkRequest = {
   id?: null | string;
   fileId: string;
   order: number;
+};
+
+export type DiscoverYandexMarketCampaignsRequest = {
+  apiKey: string;
 };
 
 export type DiskSpaceDto = {
@@ -1641,7 +1646,9 @@ export type ErrorCode =
   | "assigneeCannotAssemble"
   | "assigneeNotAssignedToWarehouse"
   | "marketplaceSupplyNotFound"
-  | "orderNotDirect";
+  | "orderNotDirect"
+  | "marketplaceCampaignDuplicate"
+  | "marketplaceAccrualsPaused";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1759,6 +1766,9 @@ export type MarketplaceAccountDto = {
   shortName?: null | string;
   isActive: boolean;
   externalClientId?: null | string;
+  externalBusinessId?: null | number;
+  externalCampaignId?: null | number;
+  accrualsPausedUntil?: null | string;
   companyLegalName?: null | string;
   inn?: null | string;
   ogrn?: null | string;
@@ -2151,6 +2161,7 @@ export type MarketplaceReturnDto = {
   reason?: null | string;
   reasonCategory?: null | MarketplaceLossReason;
   rawStatus?: null | string;
+  rawRefundStatus?: null | string;
   statusName?: null | string;
   statusChangedAt?: null | string;
   isCancelled: boolean;
@@ -2239,7 +2250,7 @@ export type MarketplaceSyncScope =
 
 export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled";
 
-export type MarketplaceType = "ozon" | "wildberries";
+export type MarketplaceType = "ozon" | "wildberries" | "yandexMarket";
 
 export type MarketplaceTypeCountDto = {
   type: MarketplaceType;
@@ -2570,6 +2581,7 @@ export type OrderMarketplaceItemDto = {
   marketplaceCard?: null | MarketplaceCardDto;
   catalogItemId?: null | string;
   quantity: number;
+  externalItemId?: null | string;
   customerPrice?: null | number;
   customerCurrencyCode?: null | string;
   price?: null | number;
@@ -5000,6 +5012,13 @@ export type WriteoffTransition = "finish" | "cancel";
 
 export type XyzClass = "x" | "y" | "z";
 
+export type YandexMarketCampaignDto = {
+  campaignId: number;
+  businessId: number;
+  name: string;
+  businessName: null | string;
+};
+
 export type GetHealthData = {
   body?: never;
   path?: never;
@@ -6985,6 +7004,37 @@ export type MarketplacesUpdateAccountResponses = {
 
 export type MarketplacesUpdateAccountResponse =
   MarketplacesUpdateAccountResponses[keyof MarketplacesUpdateAccountResponses];
+
+export type MarketplacesDiscoverYandexCampaignsData = {
+  body: DiscoverYandexMarketCampaignsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/yandex-market/campaigns";
+};
+
+export type MarketplacesDiscoverYandexCampaignsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesDiscoverYandexCampaignsError =
+  MarketplacesDiscoverYandexCampaignsErrors[keyof MarketplacesDiscoverYandexCampaignsErrors];
+
+export type MarketplacesDiscoverYandexCampaignsResponses = {
+  /**
+   * OK
+   */
+  200: Array<YandexMarketCampaignDto>;
+};
+
+export type MarketplacesDiscoverYandexCampaignsResponse =
+  MarketplacesDiscoverYandexCampaignsResponses[keyof MarketplacesDiscoverYandexCampaignsResponses];
 
 export type MarketplacesSetAccountOrganizationData = {
   body: SetAccountOrganizationRequest;

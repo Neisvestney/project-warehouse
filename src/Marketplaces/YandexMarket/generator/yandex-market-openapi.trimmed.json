@@ -982,6 +982,189 @@
           }
         }
       }
+    },
+    "/v2/reports/united-netting/generate": {
+      "post": {
+        "x-resource-id": 189,
+        "x-personal-cleanup-enabled": false,
+        "tags": [
+          "reports",
+          "fby",
+          "dbs",
+          "fbs",
+          "express"
+        ],
+        "x-auth-scopes": [
+          "all-methods",
+          "all-methods:read-only",
+          "finance-and-accounting"
+        ],
+        "x-allowed": [
+          "seller",
+          "market-yandex-go"
+        ],
+        "x-resource-limit-config": {
+          "path": "resp",
+          "none": {
+            "amount": 1,
+            "period": "minutes",
+            "period-duration": 2
+          },
+          "medium": {
+            "amount": 1,
+            "period": "minutes",
+            "period-duration": 1
+          }
+        },
+        "x-apphost": {
+          "domain": "FINANCE",
+          "enabled": false
+        },
+        "operationId": "generateUnitedNettingReport",
+        "summary": "Отчет по платежам",
+        "description": "Запускает генерацию отчета по платежам за заданный период. [Что это за отчет](https://yandex.ru/support/marketplace/ru/accounting/transactions#all-pay)\n\nУзнать статус генерации и получить ссылку на готовый отчет можно с помощью запроса [GET\u00A0v2/reports/info/{reportId}](../../reference/reports/getReportInfo.md).\n\nТип отчета зависит от того, какие поля заполнены в запросе:\n\n#|\n|| **Тип отчета** | **Какие поля нужны** | **Комментарий** ||\n|| О платежах за период | `dateFrom` и `dateTo` |\n  В отчет попадают все платежи, которые были выплачены и начислены в выбранный период.\n\n  Пример: если перевод выполнен 31\u00A0августа и зачислен 1\u00A0сентября, он попадет в отчет за оба месяца.\n||\n|| О платежном поручении | `bankOrderId` и `bankOrderDateTime` |—||\n|| [О баллах Маркета](*баллы_маркета) | `monthOfYear` |—||\n|#\n\nЗаказать отчеты нескольких типов одним запросом нельзя.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReportFormat"
+          },
+          {
+            "$ref": "#/components/parameters/ReportLanguage"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateUnitedNettingReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "В ответ приходит идентификатор, который позволяет узнавать статус генерации и скачать готовый отчет.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "420": {
+            "$ref": "#/components/responses/420"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v2/reports/info/{reportId}": {
+      "get": {
+        "x-resource-id": 188,
+        "x-personal-cleanup-enabled": false,
+        "tags": [
+          "reports",
+          "fby",
+          "dbs",
+          "fbs",
+          "express",
+          "laas"
+        ],
+        "x-auth-scopes": [
+          "all-methods",
+          "all-methods:read-only",
+          "settings-management",
+          "finance-and-accounting",
+          "offers-and-cards-management",
+          "offers-and-cards-management:read-only",
+          "pricing",
+          "pricing:read-only",
+          "inventory-and-order-processing",
+          "inventory-and-order-processing:read-only",
+          "promotion",
+          "promotion:read-only",
+          "communication",
+          "supplies-management:read-only"
+        ],
+        "x-allowed": [
+          "seller",
+          "urbanads",
+          "market-yandex-go"
+        ],
+        "x-resource-limit-config": {
+          "path": "resp",
+          "none": {
+            "amount": 100,
+            "period": "minutes",
+            "period-duration": 1
+          },
+          "medium": {
+            "amount": 100,
+            "period": "minutes",
+            "period-duration": 1
+          }
+        },
+        "x-apphost": {
+          "domain": "API",
+          "enabled": false
+        },
+        "operationId": "getReportInfo",
+        "summary": "Получение заданного отчета или документа",
+        "description": "Возвращает статус генерации заданного отчета или документа и, если он готов, ссылку для скачивания.\n\nЧтобы воспользоваться этим запросом, вначале нужно запустить генерацию отчета или документа. [Инструкция](../../step-by-step/reports.md)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReportId"
+          },
+          {
+            "$ref": "#/components/parameters/SourceType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статус генерации отчета или документа и ссылка, если она уже есть.\n\nСтатус генерации `FAILED` или `NO_DATA`\n\nПроверьте корректность запроса на генерацию. Например, верно ли указан идентификатор кампании, период или номер платежного поручения.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetReportInfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "420": {
+            "$ref": "#/components/responses/420"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2294,6 +2477,124 @@
           }
         }
       },
+      "GenerateReportDTO": {
+        "description": "Идентификатор, который понадобится для отслеживания статуса генерации и получения готового отчета или документа.",
+        "type": "object",
+        "required": [
+          "reportId",
+          "estimatedGenerationTime"
+        ],
+        "properties": {
+          "reportId": {
+            "description": "Идентификатор, который понадобится для отслеживания статуса генерации и получения готового отчета или документа.",
+            "type": "string"
+          },
+          "estimatedGenerationTime": {
+            "description": "Ожидаемая продолжительность генерации в миллисекундах.",
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "GenerateReportResponse": {
+        "description": "Ответ на запрос генерации отчета или документа.",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/GenerateReportDTO"
+              }
+            }
+          }
+        ]
+      },
+      "GenerateUnitedNettingReportRequest": {
+        "description": "Данные, необходимые для генерации отчета: идентификатор кампании, период, за который нужен отчет, а также фильтры.\n",
+        "type": "object",
+        "required": [
+          "businessId"
+        ],
+        "properties": {
+          "businessId": {
+            "$ref": "#/components/schemas/BusinessId"
+          },
+          "dateTimeFrom": {
+            "description": "Параметр устарел и будет отключен 12.10.2026.\n\nВместо него используйте `dateFrom`.\n\nНачало периода, включительно.",
+            "format": "date-time",
+            "type": "string",
+            "deprecated": true,
+            "x-deprecation-config": {
+              "shutdown-date": "2026-10-12",
+              "replacement-field": "dateFrom"
+            }
+          },
+          "dateTimeTo": {
+            "description": "Параметр устарел и будет отключен 12.10.2026.\n\nВместо него используйте `dateTo`.\n\nКонец периода, включительно. Максимальный период — 3 месяца.",
+            "format": "date-time",
+            "type": "string",
+            "deprecated": true,
+            "x-deprecation-config": {
+              "shutdown-date": "2026-10-12",
+              "replacement-field": "dateTo"
+            }
+          },
+          "dateFrom": {
+            "$ref": "#/components/schemas/PeriodDateFrom"
+          },
+          "dateTo": {
+            "description": "Конец периода, включительно. Максимальный период — 3 месяца.\n\nФормат даты: `ГГГГ-ММ-ДД`.\n",
+            "format": "date",
+            "type": "string"
+          },
+          "bankOrderId": {
+            "description": "Номер платежного поручения.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "bankOrderDateTime": {
+            "description": "Дата платежного поручения.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "monthOfYear": {
+            "$ref": "#/components/schemas/MonthOfYearDTO"
+          },
+          "placementPrograms": {
+            "description": "Список моделей, которые нужны в отчете.\n",
+            "type": "array",
+            "nullable": true,
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/PlacementType"
+            }
+          },
+          "inns": {
+            "description": "Список ИНН, которые нужны в отчете.",
+            "type": "array",
+            "nullable": true,
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "campaignIds": {
+            "description": "Список идентификаторов кампании тех магазинов, которые нужны в отчете.\n",
+            "type": "array",
+            "nullable": true,
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CampaignId"
+            }
+          }
+        }
+      },
       "GetBusinessOrdersRequest": {
         "type": "object",
         "description": "Запрос на получение информации о заказах бизнеса.",
@@ -2734,6 +3035,22 @@
           }
         ]
       },
+      "GetReportInfoResponse": {
+        "description": "Ответ на запрос информации об отчете или документе.",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/ReportInfoDTO"
+              }
+            }
+          }
+        ]
+      },
       "GetReturnsResponse": {
         "type": "object",
         "allOf": [
@@ -2943,6 +3260,30 @@
           "UPLOADED",
           "FAILED"
         ]
+      },
+      "Month": {
+        "description": "Номер месяца.",
+        "type": "integer",
+        "format": "int32",
+        "minimum": 1,
+        "maximum": 12,
+        "example": 12
+      },
+      "MonthOfYearDTO": {
+        "description": "Месяц, за который нужен отчет о баллах Маркета.",
+        "type": "object",
+        "required": [
+          "year",
+          "month"
+        ],
+        "properties": {
+          "year": {
+            "$ref": "#/components/schemas/Year"
+          },
+          "month": {
+            "$ref": "#/components/schemas/Month"
+          }
+        }
       },
       "OfferBarcodes": {
         "description": "Штрихкод.\n\nУказывайте в виде последовательности цифр. Подойдут коды :no-translate[EAN-13, EAN-8, UPC-A, UPC-E] или :no-translate[Code 128]. Для книг — :no-translate[ISBN].\n\nДля товаров [определенных категорий и торговых марок](https://yastatic.net/s3/doc-binary/src/support/market/ru/yandex-market-list-for-gtin.xlsx) штрихкод должен быть действительным кодом :no-translate[GTIN]. Обратите внимание: внутренние штрихкоды, начинающиеся на 2 или 02, и коды формата :no-translate[Code 128] не являются :no-translate[GTIN].\n\n[Что такое :no-translate[GTIN]](*gtin)\n",
@@ -3896,6 +4237,12 @@
           }
         }
       },
+      "PeriodDateFrom": {
+        "type": "string",
+        "format": "date",
+        "description": "Начало периода, включительно.\n\nФормат даты: `ГГГГ-ММ-ДД`.\n",
+        "example": "2025-08-22"
+      },
       "PickupAddressDTO": {
         "type": "object",
         "description": "Адрес доставки.",
@@ -4027,6 +4374,78 @@
           "CITY_DISTRICT",
           "SUBWAY_STATION",
           "REPUBLIC_AREA"
+        ]
+      },
+      "ReportFormatType": {
+        "description": "Формат отчета:\n\n* `FILE` — файл с электронной таблицей (:no-translate[XLSX]).\n* `CSV` — ZIP-архив с CSV-файлами на каждый лист отчета.\n* `JSON` — ZIP-архив с JSON-файлами на каждый лист отчета.\n",
+        "type": "string",
+        "enum": [
+          "FILE",
+          "CSV",
+          "JSON"
+        ],
+        "default": "FILE"
+      },
+      "ReportInfoDTO": {
+        "description": "Статус генерации и ссылка на готовый отчет или документ.",
+        "type": "object",
+        "required": [
+          "status",
+          "generationRequestedAt"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ReportStatusType"
+          },
+          "subStatus": {
+            "$ref": "#/components/schemas/ReportSubStatusType"
+          },
+          "generationRequestedAt": {
+            "description": "Дата и время запроса на генерацию.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "generationFinishedAt": {
+            "description": "Дата и время завершения генерации.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "file": {
+            "description": "Ссылка на готовый отчет или документ.\n\nСрок действия ссылки\n\nСсылка актуальна **60 минут** с момента получения ответа. При каждом запросе `GET /v2/reports/info/{reportId}` генерируется новая ссылка, срок действия которой ограничен.\n\n**Рекомендация для интеграций:** сразу после получения ссылки скачайте отчет и сохраните его у себя. Не сохраняйте ссылку для последующего использования — она станет недействительной через после истечения срока действия.",
+            "type": "string"
+          },
+          "estimatedGenerationTime": {
+            "description": "Ожидаемая продолжительность генерации в миллисекундах.",
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ReportLanguageType": {
+        "description": "Язык отчета:\n\n* `RU` — русский язык.\n* `EN` — английский язык.\n",
+        "type": "string",
+        "enum": [
+          "RU",
+          "EN"
+        ]
+      },
+      "ReportStatusType": {
+        "description": "Статус генерации:\n\n* `PENDING` — ожидает генерации.\n* `PROCESSING` — генерируется.\n* `FAILED` — во время генерации произошла ошибка.\n* `DONE` — отчет или документ готов.\n",
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "FAILED",
+          "DONE"
+        ]
+      },
+      "ReportSubStatusType": {
+        "description": "Подстатус генерации:\n* `NO_DATA` — для такого отчета или документа нет данных.\n* `TOO_LARGE` — отчет или документ превысил допустимый размер — укажите меньший период времени или уточните условия запроса.\n* `RESOURCE_NOT_FOUND` — для такого отчета или документа не удалось найти часть сущностей.\n",
+        "type": "string",
+        "enum": [
+          "NO_DATA",
+          "TOO_LARGE",
+          "RESOURCE_NOT_FOUND"
         ]
       },
       "ReturnDTO": {
@@ -4423,6 +4842,14 @@
           }
         }
       },
+      "SourceType": {
+        "description": "Тип кабинета:\n\n* `SELLER` — продавец.\n* `ADVERTISER` — рекламодатель.\n",
+        "type": "string",
+        "enum": [
+          "SELLER",
+          "ADVERTISER"
+        ]
+      },
       "TimePeriodDTO": {
         "description": "Временной отрезок с комментарием. Требования к содержанию комментария зависят от контекста использования параметра и указаны в описании поля, которое его содержит.",
         "type": "object",
@@ -4664,6 +5091,12 @@
           "DEFECT",
           "EXPIRED"
         ]
+      },
+      "Year": {
+        "description": "Год.",
+        "type": "integer",
+        "format": "int32",
+        "example": 2025
       }
     },
     "responses": {
@@ -4854,6 +5287,45 @@
           "minimum": 1,
           "default": 50,
           "maximum": 50
+        }
+      },
+      "ReportFormat": {
+        "description": "Формат отчета или документа.",
+        "name": "format",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/ReportFormatType"
+        }
+      },
+      "ReportId": {
+        "description": "Идентификатор отчета или документа, который вы получили после запуска генерации.\n",
+        "name": "reportId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "ReportLanguage": {
+        "description": "Язык отчета или документа.",
+        "name": "language",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/ReportLanguageType"
+        }
+      },
+      "SourceType": {
+        "name": "sourceType",
+        "in": "query",
+        "required": false,
+        "description": "Признак типа кабинета, от имени которого вызывается метод:\n\n- `SELLER` — продавец.\n\n- `ADVERTISER` — рекламодатель.\n\nОбязательно указывайте sourceType=ADVERTISER в каждом запросе.",
+        "schema": {
+          "$ref": "#/components/schemas/SourceType",
+          "default": "SELLER"
         }
       }
     }

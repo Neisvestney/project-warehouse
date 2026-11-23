@@ -19,6 +19,8 @@ public class MarketplacesOptions
 
     public WildberriesOptions Wildberries { get; set; } = new();
 
+    public YandexMarketOptions YandexMarket { get; set; } = new();
+
     public LabelsOptions Labels { get; set; } = new();
 }
 
@@ -61,11 +63,14 @@ public class LabelLayoutsOptions
     /// </summary>
     public LabelLayout WildberriesSticker { get; set; } = new() { TextCorner = LabelTextCorner.LeftEdge, MarginX = 4 };
 
+    public LabelLayout YandexMarketLabel { get; set; } = new();
+
     public LabelLayout For(LabelKind kind) => kind switch
     {
         LabelKind.OzonScanitLabel => OzonScanitLabel,
         LabelKind.OzonPostingLabel => OzonPostingLabel,
         LabelKind.WildberriesSticker => WildberriesSticker,
+        LabelKind.YandexMarketLabel => YandexMarketLabel,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 }
@@ -88,6 +93,7 @@ public enum LabelKind
     OzonScanitLabel = 0,
     OzonPostingLabel = 1,
     WildberriesSticker = 2,
+    YandexMarketLabel = 3,
 }
 
 public enum LabelTextCorner
@@ -99,6 +105,22 @@ public enum LabelTextCorner
 
     /// <summary>Along the left edge, reading bottom to top and centred on the page height.</summary>
     LeftEdge,
+}
+
+public class YandexMarketOptions
+{
+    public int TimeoutSeconds { get; set; } = 60;
+    public int PageDelayMs { get; set; } = 200;
+    public int ImportWindowPastDays { get; set; } = 14;
+    public int ImportOverlapHours { get; set; } = 24;
+    public int EarliestPostingProbeWindows { get; set; } = 120;
+    public int LabelBatchSize { get; set; } = 20;
+    public int ReportPollDelayMs { get; set; } = 1500;
+    public int ReportTimeoutSeconds { get; set; } = 360;
+    public int ReportRequestDelayMs { get; set; } = 120000;
+    public int AccrualsOverlapDays { get; set; } = 14;
+    public int AccrualsFullPassIntervalHours { get; set; } = 24;
+    public int MaxDownloadBytes { get; set; } = 64 * 1024 * 1024;
 }
 
 public class OzonOptions

@@ -40,6 +40,7 @@ public class MarketplaceOrderSyncService(
         [MarketplaceOrderStatus.Delivering, MarketplaceOrderStatus.Delivered, MarketplaceOrderStatus.Cancelled];
 
     private readonly OzonOptions _ozon = options.Value.Ozon;
+    private readonly YandexMarketOptions _yandex = options.Value.YandexMarket;
 
     public async Task SyncOrdersAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
@@ -74,7 +75,7 @@ public class MarketplaceOrderSyncService(
     {
         var warehouses = await LoadWarehousesAsync(account.Id, ct);
 
-        await foreach (var page in provider.FetchActivePostingsAsync(credentials, ct))
+        await foreach (var page in DiscoveryPagesAsync(provider, credentials, account, ct))
         {
             await db.Database.ExecuteInTransactionAsync("marketplace.sync.orders.page", async () =>
             {
@@ -109,7 +110,7 @@ public class MarketplaceOrderSyncService(
 
                     var lines = ResolveLines(posting, account.Id, cards);
                     db.Orders.Add(BuildOrder(posting, account, ResolveWarehouse(posting, warehouses), lines,
-                        isExternal: false));
+                        isExternal: posting.Status is not (MarketplaceOrderStatus.AwaitingPackaging or MarketplaceOrderStatus.AwaitingDeliver)));
                     created.Add(posting);
                     run.OrdersCreated++;
                 }
@@ -130,6 +131,23 @@ public class MarketplaceOrderSyncService(
             }, ct);
             await realtime.PublishProgressAsync(run, ct);
         }
+    }
+
+    private async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> DiscoveryPagesAsync(IMarketplaceProvider provider,
+        MarketplaceCredentials credentials, MarketplaceAccount account,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        if (account.Type == MarketplaceType.YandexMarket)
+        {
+            var to = DateTime.UtcNow;
+            var from = account.FbsPostingsSyncedAt?.AddHours(-_yandex.ImportOverlapHours)
+                ?? to.AddDays(-_yandex.ImportWindowPastDays);
+            await foreach (var page in provider.FetchPostingsAsync(credentials,
+                new(ExternalPostingScheme.Fbs, from, to, StatusChangedSince: from), ct))
+                yield return page;
+        }
+        await foreach (var page in provider.FetchActivePostingsAsync(credentials, ct))
+            yield return page;
     }
 
     private static Guid? ResolveWarehouse(ExternalPosting posting, IReadOnlyDictionary<string, Guid> warehouses) =>
@@ -357,6 +375,7 @@ public class MarketplaceOrderSyncService(
         MarketplaceCardId = line.CardId,
         CatalogItemId = line.CatalogItemId,
         Quantity = line.Item.Quantity,
+        ExternalItemId = line.Item.ExternalItemId,
         CustomerPrice = line.Item.CustomerPrice,
         CustomerCurrencyCode = line.Item.CustomerCurrencyCode,
         Price = line.Item.Price,
@@ -512,7 +531,8 @@ public class MarketplaceOrderSyncService(
         var matched = new List<OrderMarketplaceItem>(lines.Count);
         foreach (var line in lines)
         {
-            var index = free.FindIndex(i => i.MarketplaceCardId == line.CardId && i.Quantity == line.Item.Quantity);
+            var index = free.FindIndex(i => i.MarketplaceCardId == line.CardId && i.Quantity == line.Item.Quantity
+                && i.ExternalItemId == line.Item.ExternalItemId);
             if (index < 0)
                 return null;
 
@@ -839,14 +859,15 @@ public class MarketplaceOrderSyncService(
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
         var to = DateTime.UtcNow;
-        var createdSince = to.AddDays(-_ozon.FbsImportWindowPastDays);
+        var yandex = account.Type == MarketplaceType.YandexMarket;
+        var createdSince = to.AddDays(-(yandex ? _yandex.ImportWindowPastDays : _ozon.FbsImportWindowPastDays));
         var changedSince = account.FbsPostingsSyncedAt is { } syncedAt
-            ? syncedAt.AddHours(-_ozon.FbsImportOverlapHours)
+            ? syncedAt.AddHours(-(yandex ? _yandex.ImportOverlapHours : _ozon.FbsImportOverlapHours))
             : createdSince;
 
         await ImportExternalPostingsAsync(provider, credentials, account, run,
             new ExternalPostingQuery(ExternalPostingScheme.Fbs, createdSince, to, ExternalStatuses, changedSince),
-            refreshKnown: false, ct);
+            refreshKnown: yandex, ct);
 
         // same rule as FboPostingsSyncedAt: a run that threw halfway leaves the mark where it was
         account.FbsPostingsSyncedAt = to;
@@ -1215,8 +1236,10 @@ public class MarketplaceOrderSyncService(
                 continue;
 
             // same precedence as CardLookup.Find: SKU first, seller article second
-            var index = pending.FindIndex(i => i.Sku is { Length: > 0 } && i.Sku == card.Sku);
-            if (index < 0)
+            var index = line.ExternalItemId is { } itemId
+                ? pending.FindIndex(i => i.ExternalItemId == itemId)
+                : pending.FindIndex(i => i.Sku is { Length: > 0 } && i.Sku == card.Sku);
+            if (index < 0 && line.ExternalItemId is null)
                 index = pending.FindIndex(i => i.OfferId.Length > 0 && i.OfferId == card.OfferId);
             if (index < 0)
                 continue;

@@ -10,6 +10,9 @@ public class CreateMarketplaceAccountRequest
     /// <summary>Required when the provider declares RequiresClientId.</summary>
     public string? ClientId { get; init; }
 
+    [Range(1, long.MaxValue)]
+    public long? CampaignId { get; init; }
+
     [MaxLength(32)]
     public string? ShortName { get; init; }
 

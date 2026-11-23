@@ -39,6 +39,7 @@ export function formatPercent(value: number | null | undefined): string {
 const MARKETPLACE_SHORT_LABELS: Record<MarketplaceType, string> = {
   ozon: "OZON",
   wildberries: "WB",
+  yandexMarket: "ЯМ",
 };
 
 /** «WB · Магазин» — a chart caption has no chip colour to tell the marketplace by. */

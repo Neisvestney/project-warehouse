@@ -21,6 +21,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Neisvestney.Marketplaces.Ozon;
 using Neisvestney.Marketplaces.Wildberries;
+using Neisvestney.Marketplaces.YandexMarket;
 using PdfSharp.Fonts;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
@@ -34,6 +35,7 @@ using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
 using ProjectWarehouse.Server.Integrations.Wildberries;
+using ProjectWarehouse.Server.Integrations.YandexMarket;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
@@ -409,6 +411,31 @@ try
     builder.Services.AddTransient<WildberriesRequestLineHandler>();
     builder.Services.AddScoped<IWildberriesClient, WildberriesClient>();
     builder.Services.AddScoped<IMarketplaceProvider, WildberriesMarketplaceProvider>();
+    builder.Services.AddSingleton<IYandexMarketCredentialsProvider, YandexMarketRequestCredentials>();
+    builder.Services.AddTransient<YandexMarketAuthHandler>();
+    builder.Services.AddSingleton<YandexMarketReportQuota>();
+    builder.Services.AddScoped<IYandexMarketClient, YandexMarketClient>();
+    builder.Services.AddScoped<IYandexMarketConnectionService, YandexMarketConnectionService>();
+    builder.Services.AddScoped<IMarketplaceProvider, YandexMarketMarketplaceProvider>();
+    builder.Services.AddOptions<MarketplacesOptions>().Validate(o => o.YandexMarket.TimeoutSeconds > 0
+        && o.YandexMarket.ReportTimeoutSeconds > 0 && o.YandexMarket.ReportPollDelayMs > 0
+        && o.YandexMarket.ReportRequestDelayMs >= 120000 && o.YandexMarket.ImportWindowPastDays > 0
+        && o.YandexMarket.ImportOverlapHours >= 24 && o.YandexMarket.EarliestPostingProbeWindows > 0
+        && o.YandexMarket.LabelBatchSize > 0 && o.YandexMarket.MaxDownloadBytes > 0,
+        "Invalid Yandex Market options.").ValidateOnStart();
+    builder.Services.AddHttpClient<IYandexMarketApiClient, YandexMarketApiClient>(c =>
+        {
+            c.BaseAddress = new Uri("https://api.partner.market.yandex.ru");
+            c.Timeout = TimeSpan.FromSeconds(marketplacesOptions.YandexMarket.TimeoutSeconds);
+        })
+        .AddHttpMessageHandler<YandexMarketAuthHandler>()
+        .RedactLoggedHeaders(["Api-Key"]);
+    builder.Services.AddHttpClient("yandex-market-labels", c =>
+            c.Timeout = TimeSpan.FromSeconds(marketplacesOptions.YandexMarket.TimeoutSeconds))
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
+        .RedactLoggedHeaders(["Api-Key"]);
+    builder.Services.AddHttpClient("yandex-market-reports", c =>
+        c.Timeout = TimeSpan.FromSeconds(marketplacesOptions.YandexMarket.ReportTimeoutSeconds));
     builder.Services.AddScoped<IMarketplaceProviderRegistry, MarketplaceProviderRegistry>();
 
     // in-memory job store, consistent with the project's existing single-node assumption
