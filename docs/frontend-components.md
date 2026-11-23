@@ -527,6 +527,9 @@ the bar falls back to the list summary — `info: TableInfoStat[]` rendered as a
 button rather than silently turning into the list summary. So a caller builds the action list only while
 something is selected and never needs a separate visibility flag.
 
+Disabled toolbar buttons use an opaque theme surface with secondary text so their labels and pending spinners
+remain legible against the selection band in both color schemes.
+
 `infoActions` holds display controls such as `TableColumnsButton` at the right edge of the summary through
 `TableInfoBar.children`. These controls are hidden while rows are selected. The summary appears below the
 selected count, with smaller `caption` text. Summary stats wrap as whole «label value» pairs within the left

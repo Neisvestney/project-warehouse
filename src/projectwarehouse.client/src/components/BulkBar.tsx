@@ -48,8 +48,11 @@ interface BulkBarProps {
   infoActions?: ReactNode;
 }
 
-const buttonSx = {color: "primary.main"};
-const dangerButtonSx = {color: "error.main"};
+const buttonSx = {
+  color: "primary.main",
+  "&.Mui-disabled": {bgcolor: "background.paper", color: "text.secondary"},
+};
+const dangerButtonSx = {...buttonSx, color: "error.main"};
 const promotionSpace = 48;
 const retentionSpace = 16;
 
