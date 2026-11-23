@@ -58,7 +58,7 @@ function HomePage({}: HomePageProps) {
   return (
     // Bottom room so the fixed FAB does not cover the last card
     <Stack spacing={2} sx={{pb: showCameraFab ? 10 : 0}}>
-      {!isMobile && <AppEvents />}
+      <AppEvents />
       <Box
         sx={{
           width: "100%",

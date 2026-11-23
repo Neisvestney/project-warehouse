@@ -424,6 +424,17 @@ refresh never overwrites unsaved edits, and both password dialogs (`ChangePasswo
 scan entry point: a camera FAB on narrow screens and the hardware scanner both open the
 [`GlobalSearchModal`](frontend-components.md#globalsearchmodal) through `useGlobalSearch()`.
 
+`AppEvents` uses a monthly calendar on desktop and three day cards below the `sm` breakpoint, newest first.
+The mobile range ends today by default; navigation shifts it by three days in either direction, including
+across month boundaries. Its last day is stored in `eventDay` (`yyyy-MM-dd`), independently of the desktop
+`month` param; today is omitted from the URL. Both views use `/api/events` and `resolveEntity` for event
+titles, status colors and document links.
+Mobile cards reserve 232 px while collapsed and show as many complete content-sized event rows as fit
+above the reserved button area. «Ещё» shows the hidden event count and expands the full list and clipped
+titles, while «Свернуть» restores the fixed height. The last completed range keeps its dates and events
+during fetching. Loading and error indicators are positioned over the cards without taking layout space;
+range navigation is disabled while a request is in flight. A different range starts with collapsed cards.
+
 ### `PrintPage`
 
 Print-ready label sheet generator at `/print`. Takes a batch of labels from one of two sources and renders a grid of
