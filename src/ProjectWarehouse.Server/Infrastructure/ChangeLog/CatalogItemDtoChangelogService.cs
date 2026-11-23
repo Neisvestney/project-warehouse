@@ -1,17 +1,16 @@
+using KellermanSoftware.CompareNetObjects;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Files;
 
 namespace ProjectWarehouse.Server.Infrastructure.ChangeLog;
 
-public class CatalogItemDtoChangelogService(IChangeLogService changeLogService) : IChangeLogService<CatalogItemDto>
+public class CatalogItemDtoChangelogService(IChangeLogService changeLogService)
+    : TypedChangeLogService<CatalogItemDto>(changeLogService, AppEntityType.CatalogItem)
 {
-    private const AppEntityType EntityType = AppEntityType.CatalogItem;
-
-    public Task CompareAndSaveToChangelog(CatalogItemDto? before, CatalogItemDto? after, string? action = null,
-        object? actionData = null)
+    protected override CompareLogic CreateCompareLogic()
     {
-        var logic = AbstractChangeLogService.GetCompareLogic();
+        var logic = base.CreateCompareLogic();
 
         // MainImage is the *effective* value: without this, changing the group's photo would log a
         // phantom edit on every child. The item's own MainImageFileId still diffs.
@@ -24,10 +23,6 @@ public class CatalogItemDtoChangelogService(IChangeLogService changeLogService) 
         foreach (var member in typeof(DataFileDto).GetProperties().Where(p => p.Name != nameof(DataFileDto.Id)))
             logic.Config.MembersToIgnore.Add($"{nameof(DataFileDto)}.{member.Name}");
 
-        return changeLogService.CompareAndSaveToChangelog(EntityType, before?.Id ?? after?.Id ?? Guid.Empty, before,
-            after, logic, action, actionData);
+        return logic;
     }
-
-    public IQueryable<ChangeLogEntry> GetChangelog(Guid entityId) =>
-        changeLogService.GetChangelog(EntityType, entityId);
 }

@@ -17,6 +17,17 @@ Tracks every mutation of key entities (create / update / delete) with a before/a
 
 The diff is skipped entirely if `before == after` — no unnecessary rows.
 
+Bulk tag changes in the catalog, orders, receipts, write-offs and stocktakes use
+`IChangeLogService<T>.CompareAndSaveBatchToChangelog`. Each `ChangeLogChange<T>` carries the same
+before/after DTOs, action and action data as a single-entry call. Both paths share entry construction and
+the typed service's comparison rules. A batch prepares all entries before adding them to the context,
+skips unchanged pairs, and saves the entries with one `SaveChangesAsync(ct)` call. An empty or entirely
+unchanged batch does not save audit entries or publish events. EF may split the inserts into several SQL commands.
+
+The bulk tag endpoints run inside `[Transactional]`: tag bindings and audit entries commit together.
+Entity-change events are queued only after the audit save succeeds; the request's realtime outbox publishes
+them after commit and discards them on rollback. Single-entry calls save immediately.
+
 **Every written entry also publishes a realtime `entityChanged`** to the object's watchers, addressed past the
 author so nobody is told their own save made the screen stale. The publication sits here rather than in each
 controller for three reasons: the method already takes `(entityType, entityId)` — the exact key watchers are
@@ -70,22 +81,14 @@ Use the richest read DTO for that entity (the one returned by the GET-by-id endp
 Check `Infrastructure/ChangeLog/` for a `{DtoType}ChangelogService`. If it doesn't exist, create one following this pattern:
 
 ```csharp
-public class MyDtoChangelogService(IChangeLogService changeLogService) : IChangeLogService<MyDto>
-{
-    private const AppEntityType EntityType = AppEntityType.MyEntity;
-
-    public Task CompareAndSaveToChangelog(MyDto? before, MyDto? after, string? action = null, object? actionData = null)
-    {
-        var logic = AbstractChangeLogService.GetCompareLogic();
-        return changeLogService.CompareAndSaveToChangelog(
-            EntityType, before?.Id ?? after?.Id ?? Guid.Empty,
-            before, after, logic, action, actionData);
-    }
-
-    public IQueryable<ChangeLogEntry> GetChangelog(Guid entityId) =>
-        changeLogService.GetChangelog(EntityType, entityId);
-}
+public class MyDtoChangelogService(IChangeLogService changeLogService)
+    : TypedChangeLogService<MyDto>(changeLogService, AppEntityType.MyEntity);
 ```
+
+`TypedChangeLogService<T>` implements single-entry writes, batch writes and history queries for DTOs implementing
+`IHasIdentity`. Override `CreateCompareLogic()` and start with `base.CreateCompareLogic()` when the DTO needs
+comparison exclusions; both write paths use that configuration. An aggregate with a shared history key can
+override `NormalizeEntityId(Guid)`; the normalization applies to writes and queries alike.
 
 Then register it in `Program.cs`:
 
@@ -95,7 +98,8 @@ builder.Services.AddScoped<IChangeLogService<MyDto>, MyDtoChangelogService>();
 
 ### 3. Implement IHasIdentity on the DTO
 
-The DTO **must** implement `IHasIdentity` (or the `Id` property must exist) so `CollectionMatchingSpec` can match nested collection items by identity during diff.
+The DTO **must** implement `IHasIdentity` to satisfy the typed service's constraint. Nested collection items
+implement it too when `CollectionMatchingSpec` should match them by identity during diff.
 
 ```csharp
 public class MyDto : IHasIdentity

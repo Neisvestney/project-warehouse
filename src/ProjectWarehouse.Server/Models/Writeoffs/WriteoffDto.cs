@@ -1,9 +1,10 @@
+using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models.Files;
 
 namespace ProjectWarehouse.Server.Models.Writeoffs;
 
-public class WriteoffDto
+public class WriteoffDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public int Number { get; init; }

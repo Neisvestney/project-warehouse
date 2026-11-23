@@ -1853,7 +1853,13 @@ public class OrdersController(
 
         await db.SaveChangesAsync(ct);
 
-        await SaveBatchChangelogsAsync(changes, nodeById, ct);
+        if (changes.Count > 0)
+        {
+            var changedIds = changes.Select(change => change.before.Id).ToList();
+            var full = await DetailsQuery().Where(order => changedIds.Contains(order.Id)).ToDictionaryAsync(order => order.Id, ct);
+            await changeLog.CompareAndSaveBatchToChangelog(changes.Select(change =>
+                new ChangeLogChange<OrderDetailsDto>(change.before, MapDetails(full[change.before.Id], nodeById), change.action)), ct);
+        }
         await PublishBatchAssemblyChangedAsync(assemblyBefore, changedOrderIds, ct);
 
         return NoContent();

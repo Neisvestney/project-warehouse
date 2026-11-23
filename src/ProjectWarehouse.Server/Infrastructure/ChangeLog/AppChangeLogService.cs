@@ -21,4 +21,10 @@ public class AppChangeLogService(
         db.ChangeLogEntries.Add(entry);
         return db.SaveChangesAsync();
     }
+
+    protected override Task AddNewEntries(IReadOnlyList<ChangeLogEntry> entries, CancellationToken ct)
+    {
+        db.ChangeLogEntries.AddRange(entries);
+        return db.SaveChangesAsync(ct);
+    }
 }

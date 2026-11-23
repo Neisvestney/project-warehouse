@@ -28,6 +28,7 @@ public abstract class AbstractChangeLogService : IChangeLogService
 
     protected abstract IQueryable<ChangeLogEntry> GetGetChangelogQueryable();
     protected abstract Task AddNewEntry(ChangeLogEntry entry);
+    protected abstract Task AddNewEntries(IReadOnlyList<ChangeLogEntry> entries, CancellationToken ct);
 
     public static CompareLogic GetCompareLogic()
     {
@@ -61,6 +62,31 @@ public abstract class AbstractChangeLogService : IChangeLogService
 
     public async Task CompareAndSaveToChangelog(AppEntityType entityType, Guid entityId, object? before, object? after, CompareLogic? logicOverride = null, string? action = null, object? actionData = null)
     {
+        var entry = CreateEntry(entityType, entityId, before, after, logicOverride, action, actionData);
+        if (entry is null) return;
+        await AddNewEntry(entry);
+        await PublishAsync(entry);
+    }
+
+    public async Task CompareAndSaveBatchToChangelog(IEnumerable<ChangeLogComparison> changes, CancellationToken ct = default)
+    {
+        var entries = new List<ChangeLogEntry>();
+        foreach (var change in changes)
+        {
+            ct.ThrowIfCancellationRequested();
+            var entry = CreateEntry(change.EntityType, change.EntityId, change.Before, change.After,
+                change.Logic, change.Action, change.ActionData);
+            if (entry is not null) entries.Add(entry);
+        }
+        if (entries.Count == 0) return;
+        await AddNewEntries(entries, ct);
+        foreach (var entry in entries)
+            await PublishAsync(entry);
+    }
+
+    private ChangeLogEntry? CreateEntry(AppEntityType entityType, Guid entityId, object? before, object? after,
+        CompareLogic? logicOverride, string? action, object? actionData)
+    {
         var changeLogEntry = new ChangeLogEntry
         {
             UserId = GetCurrentUserId(),
@@ -90,7 +116,7 @@ public abstract class AbstractChangeLogService : IChangeLogService
             var logic = logicOverride ?? GetCompareLogic();
             var diff = logic.Compare(before, after);
 
-            if (diff.AreEqual) return;
+            if (diff.AreEqual) return null;
 
             changeLogEntry.ChangeLogEntryType = ChangeLogEntryType.Modified;
             changeLogEntry.Snapshot = JsonSerializer.Serialize(before, _jsonOptions);
@@ -105,11 +131,12 @@ public abstract class AbstractChangeLogService : IChangeLogService
                 }).Reverse().ToList();
         }
 
-        await AddNewEntry(changeLogEntry);
+        return changeLogEntry;
+    }
 
-        // Watchers of the object are told only after the write went through, and never the connection
-        // that made the change — other tabs or devices of the same user still get told.
-        await _realtime.PublishEntityChangedAsync(entityType, entityId, _httpContextAccessor.HttpContext);
+    private async Task PublishAsync(ChangeLogEntry changeLogEntry)
+    {
+        await _realtime.PublishEntityChangedAsync(changeLogEntry.EntityType, changeLogEntry.EntityId, _httpContextAccessor.HttpContext);
         
         _logger.LogInformation("Changelog entry created [type: {EntityType}, id: {EntityId}]", changeLogEntry.EntityType, changeLogEntry.EntityId);
     }
@@ -124,12 +151,19 @@ public abstract class AbstractChangeLogService : IChangeLogService
 
 public interface IChangeLogService
 {
+    Task CompareAndSaveBatchToChangelog(IEnumerable<ChangeLogComparison> changes, CancellationToken ct = default);
     public Task CompareAndSaveToChangelog(AppEntityType entityType, Guid entityId, object? before, object? after, CompareLogic? logicOverride = null, string? action = null, object? actionData = null);
     public IQueryable<ChangeLogEntry> GetChangelog(AppEntityType entityType, Guid entityId);
 }
 
-public interface IChangeLogService<in T>
+public record ChangeLogComparison(AppEntityType EntityType, Guid EntityId, object? Before, object? After,
+    CompareLogic? Logic = null, string? Action = null, object? ActionData = null);
+
+public record ChangeLogChange<T>(T? Before, T? After, string? Action = null, object? ActionData = null);
+
+public interface IChangeLogService<T>
 {
+    Task CompareAndSaveBatchToChangelog(IEnumerable<ChangeLogChange<T>> changes, CancellationToken ct = default);
     public Task CompareAndSaveToChangelog(T? before, T? after, string? action = null, object? actionData = null);
     public IQueryable<ChangeLogEntry> GetChangelog(Guid entityId);
 }

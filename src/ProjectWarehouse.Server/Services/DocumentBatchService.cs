@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Tags;
 
@@ -108,8 +109,8 @@ public class DocumentBatchService(ApplicationDbContext db) : IDocumentBatchServi
 
         await db.SaveChangesAsync(ct);
 
-        foreach (var (document, before) in changes)
-            await changelog.Service.CompareAndSaveToChangelog(before, changelog.Map(document, nodeById));
+        await changelog.Service.CompareAndSaveBatchToChangelog(changes.Select(change =>
+            new ChangeLogChange<TDto>(change.before, changelog.Map(change.document, nodeById))), ct);
 
         return null;
     }

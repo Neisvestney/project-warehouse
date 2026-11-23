@@ -8,6 +8,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Tags;
@@ -556,6 +557,7 @@ public class CatalogController(
     /// item does not exist — arg <c>count</c> (the number of missing ids). Items that already have (or already lack)
     /// the tag are left untouched and get no changelog entry. Answers 204. Requires <c>catalog.edit</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-update-tags")]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -595,8 +597,8 @@ public class CatalogController(
 
         await db.SaveChangesAsync(ct);
 
-        foreach (var (item, before) in changes)
-            await changeLog.CompareAndSaveToChangelog(before, mapper.Map<CatalogItemDto>(item));
+        await changeLog.CompareAndSaveBatchToChangelog(changes.Select(change =>
+            new ChangeLogChange<CatalogItemDto>(change.before, mapper.Map<CatalogItemDto>(change.item))), ct);
 
         return NoContent();
     }

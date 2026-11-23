@@ -1,8 +1,9 @@
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Models.Tags;
 
-public class TagDto
+public class TagDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = null!;
