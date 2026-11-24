@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Models.Integrations;
 
-public record YandexMarketCampaignDto(long CampaignId, long BusinessId, string Name, string? BusinessName);
+public record YandexMarketCampaignDto(long CampaignId, long BusinessId, string Name, string? BusinessName,
+    YandexMarketModel Model);
 
 public class DiscoverYandexMarketCampaignsRequest
 {

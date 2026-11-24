@@ -23,13 +23,13 @@ public sealed partial class YandexMarketClient
             yield return response.Returns
                 .Where(r => !history || r.CreationDate is { } created
                     && created.UtcDateTime >= query.Since && created.UtcDateTime <= query.To)
-                .SelectMany(MapReturn).ToArray();
+                .SelectMany(r => MapReturn(r, IsFby ? MarketplaceReturnScheme.Fbo : MarketplaceReturnScheme.Fbs)).ToArray();
             token = Next(response.Paging?.NextPageToken, seen);
             if (token is not null) await PauseAsync(ct);
         } while (token is not null);
     }
 
-    public static IEnumerable<ExternalReturn> MapReturn(ReturnDTO value)
+    public static IEnumerable<ExternalReturn> MapReturn(ReturnDTO value, MarketplaceReturnScheme scheme = MarketplaceReturnScheme.Fbs)
     {
         var shipment = value.ShipmentStatus?.ToString();
         var refund = value.RefundStatus?.ToString();
@@ -40,7 +40,7 @@ public sealed partial class YandexMarketClient
             var subreason = decision?.SubreasonType?.ToString();
             var reasonCode = reason is null ? null : $"{reason}/{subreason}";
             yield return new($"{Id(value.Id)}:{item.ShopSku}", Id(value.OrderId), item.MarketSku?.ToString(), item.ShopSku,
-                MarketplaceReturnScheme.Fbs, "FBS",
+                scheme, scheme == MarketplaceReturnScheme.Fbo ? "FBY" : "FBS",
                 value.ReturnType == ReturnType.UNREDEEMED ? MarketplaceReturnKind.FullRefusal : MarketplaceReturnKind.CustomerReturn,
                 value.ReturnType.ToString(), checked((int)item.Count), null, null,
                 string.Join("; ", item.Decisions?.Select(d => d.Comment).Where(c => !string.IsNullOrWhiteSpace(c)) ?? []),
@@ -57,6 +57,7 @@ public sealed partial class YandexMarketClient
         "IN_TRANSIT" => "В пути",
         "READY_FOR_PICKUP" => "Готов к выдаче",
         "PICKED" => "Получен продавцом",
+        "FULFILMENT_RECEIVED" => "Принят на складе Маркета",
         "UTILIZED" => "Утилизирован",
         "CANCELLED" => "Отменён",
         "EXPIRED" => "Срок возврата истёк",

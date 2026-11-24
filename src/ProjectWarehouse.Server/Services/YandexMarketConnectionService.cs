@@ -28,14 +28,14 @@ public sealed class YandexMarketConnectionService(IYandexMarketClient client, Ma
         long? campaignId, long? businessId, CancellationToken ct)
     {
         if (campaignId is null)
-            return (null, AppProblems.UnprocessableEntity("campaignId", ErrorCode.Required, "Select an FBS campaign."));
+            return (null, AppProblems.UnprocessableEntity("campaignId", ErrorCode.Required, "Select an FBS or FBY campaign."));
         var (campaigns, problem) = await DiscoverAsync(apiKey, ct);
         if (problem is not null) return (null, problem);
         var campaign = campaigns.FirstOrDefault(c => c.CampaignId == campaignId
             && (businessId is null || c.BusinessId == businessId));
         return campaign is null
             ? (null, AppProblems.UnprocessableEntity("campaignId", ErrorCode.ValidationError,
-                "The key cannot access the selected FBS campaign."))
+                "The key cannot access the selected FBS or FBY campaign."))
             : (campaign, null);
     }
 }

@@ -50,7 +50,8 @@ public class YandexMarketClientTests
         using var handler = new Handler((request, index) => Json(index == 1 ? """
             {"campaigns":[
               {"id":20,"domain":"Shop","business":{"id":10,"name":"Business"},"placementType":"FBS","apiAvailability":"AVAILABLE"},
-              {"id":21,"business":{"id":10},"placementType":"DBS","apiAvailability":"AVAILABLE"}],
+              {"id":21,"business":{"id":10},"placementType":"DBS","apiAvailability":"AVAILABLE"},
+              {"id":23,"domain":"FBY shop","business":{"id":10},"placementType":"FBY","apiAvailability":"AVAILABLE"}],
              "paging":{"nextPageToken":"next"}}
             """ : """
             {"campaigns":[{"id":22,"business":{"id":10},"placementType":"FBS","apiAvailability":"MANUALLY_DISABLED"}]}
@@ -59,7 +60,8 @@ public class YandexMarketClientTests
         var service = new YandexMarketConnectionService(client, context);
         var (campaigns, problem) = await service.DiscoverAsync("key", default);
         Assert.Null(problem);
-        Assert.Equal(20, Assert.Single(campaigns).CampaignId);
+        Assert.Equal(new long[] { 20, 23 }, campaigns.Select(c => c.CampaignId));
+        Assert.Equal(new[] { YandexMarketModel.Fbs, YandexMarketModel.Fby }, campaigns.Select(c => c.Model));
         Assert.Contains("pageToken=next", handler.Requests[1].Url);
         var invalid = await service.ValidateAsync("key", 20, 99, default);
         Assert.NotNull(invalid.Problem);
@@ -143,6 +145,146 @@ public class YandexMarketClientTests
             Assert.Equal(to, finalDates.GetProperty("updateDateTo").GetDateTimeOffset().UtcDateTime);
         else
             Assert.Equal("2026-11-25", finalDates.GetProperty("creationDateTo").GetString());
+    }
+
+    [Theory]
+    [InlineData(YandexMarketModel.Fbs, ExternalPostingScheme.Fbo)]
+    [InlineData(YandexMarketModel.Fby, ExternalPostingScheme.Fbs)]
+    public async Task Orders_DoNotRequestTheOtherCampaignScheme(YandexMarketModel model, ExternalPostingScheme scheme)
+    {
+        using var handler = new Handler((request, index) => throw new InvalidOperationException("No request expected."));
+        var (client, context) = Client(handler);
+        using var scope = context.Use(new(null, "key", 10, 20, model));
+        await foreach (var page in client.GetPostingsAsync(new(scheme, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow), default))
+            Assert.Empty(page);
+        var provider = new YandexMarketMarketplaceProvider(client, context, NullLogger<YandexMarketMarketplaceProvider>.Instance);
+        Assert.Empty(await provider.FetchPostingStatusesAsync(new(null, "key", 10, 20, model), ["100"], scheme, default));
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Fby_DoesNotDiscoverSellerWorkWarehousesOrLabels()
+    {
+        using var handler = new Handler((request, index) => throw new InvalidOperationException("No request expected."));
+        var (client, context) = Client(handler);
+        using var scope = context.Use(new(null, "key", 10, 20, YandexMarketModel.Fby));
+        Assert.Empty(await client.GetWarehousesAsync(default));
+        await foreach (var page in client.GetActivePostingsAsync(default)) Assert.Empty(page);
+        var labels = await client.GetLabelsAsync(["100"], default);
+        Assert.False(labels.IsReady);
+        Assert.Equal("100", Assert.Single(labels.Unprinted).PostingNumber);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData(YandexMarketModel.Fbs, "FBS", ExternalPostingScheme.Fbs)]
+    [InlineData(YandexMarketModel.Fby, "FBY", ExternalPostingScheme.Fbo)]
+    public async Task Orders_FilterCampaignProgramAndFakeAndKeepOptionalProgram(YandexMarketModel model,
+        string program, ExternalPostingScheme scheme)
+    {
+        var wrong = program == "FBY" ? "FBS" : "FBY";
+        string Order(long id, long campaign, string? kind, bool fake = false) => JsonSerializer.Serialize(new
+        {
+            orderId = id, campaignId = campaign, programType = kind, fake, status = "DELIVERED", substatus = "DELIVERED_USER_RECEIVED",
+            creationDate = "2026-11-20T12:00:00Z", items = Array.Empty<object>(), delivery = new { dates = new {} },
+        });
+        using var handler = new Handler((request, index) => Json("{\"orders\":[" + string.Join(',',
+            Order(100, 20, program), Order(101, 21, program), Order(102, 20, wrong), Order(103, 20, program, true),
+            Order(104, 20, null)) + "]}"));
+        var (client, context) = Client(handler);
+        using var scope = context.Use(new(null, "key", 10, 20, model));
+        var postings = new List<ExternalPosting>();
+        await foreach (var page in client.GetPostingsAsync(new(scheme, new(2026, 11, 20), new(2026, 11, 21)), default))
+            postings.AddRange(page);
+        Assert.Equal(new[] { "100", "104" }, postings.Select(p => p.PostingNumber));
+        Assert.All(postings, p => Assert.Equal(scheme, p.Scheme));
+        using var body = JsonDocument.Parse(Assert.Single(handler.Requests).Body!);
+        Assert.Contains(program, body.RootElement.GetProperty("programTypes").EnumerateArray().Select(p => p.GetString()));
+        Assert.Equal(20, body.RootElement.GetProperty("campaignIds")[0].GetInt64());
+        Assert.False(body.RootElement.GetProperty("fake").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData(OrderStatusType.PROCESSING, MarketplaceOrderStatus.AwaitingDeliver)]
+    [InlineData(OrderStatusType.DELIVERY, MarketplaceOrderStatus.Delivering)]
+    [InlineData(OrderStatusType.PICKUP, MarketplaceOrderStatus.Delivering)]
+    [InlineData(OrderStatusType.RETURNED, MarketplaceOrderStatus.Delivered)]
+    [InlineData(OrderStatusType.CANCELLED, MarketplaceOrderStatus.Cancelled)]
+    public void Fby_MapsExternalPostingWithoutSellerFulfillment(OrderStatusType status, MarketplaceOrderStatus expected)
+    {
+        using var handler = new Handler((request, index) => Json("{}"));
+        var (client, _) = Client(handler);
+        var posting = client.MapPosting(new BusinessOrderDTO
+        {
+            OrderId = 100, CampaignId = 20, Status = status, Substatus = OrderSubstatusType.USER_NOT_PAID,
+            CreationDate = new(2026, 11, 20, 12, 0, 0, TimeSpan.Zero),
+            Items = [new() { Id = 5, OfferId = "sku", OfferName = "Product", Count = 2,
+                Prices = new() { Payment = new() { Value = 200, CurrencyId = CurrencyType.RUR },
+                    Cashback = new() { Value = 10 }, Subsidy = new() { Value = 20 } } }],
+            Delivery = new() { WarehouseId = "market-warehouse", ServiceName = "Market", Dates = new(),
+                BoxesLayout = [new() { BoxId = 7, Barcode = "seller-label", Items = [] }] },
+        }, ExternalPostingScheme.Fbo);
+        Assert.Equal(ExternalPostingScheme.Fbo, posting.Scheme);
+        Assert.Equal(expected, posting.Status);
+        Assert.Null(posting.WarehouseExternalId);
+        Assert.Null(posting.DeliveryMethodName);
+        Assert.Null(posting.TrackingNumber);
+        Assert.Null(posting.ShipmentDate);
+        Assert.Null(posting.LabelBarcode);
+        Assert.Null(posting.Parcels);
+        Assert.Equal(1, posting.MultiBoxQty);
+        Assert.Equal("5", Assert.Single(posting.Items).ExternalItemId);
+        Assert.Equal(115, posting.Items[0].Price);
+        Assert.Equal(105, posting.Items[0].CustomerPrice);
+        if (status == OrderStatusType.CANCELLED)
+            Assert.Equal(MarketplaceLossReason.BuyerOther, posting.Cancellation!.ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Fby_StatusesAndEarliestDateUseSelectedCampaignScheme()
+    {
+        using var handler = new Handler((request, index) => Json("""
+            {"orders":[{"orderId":100,"campaignId":20,"programType":"FBY","status":"PROCESSING",
+             "substatus":"STARTED","creationDate":"2026-11-20T12:00:00Z","items":[],"delivery":{"dates":{}}}]}
+            """));
+        var (client, context) = Client(handler);
+        var provider = new YandexMarketMarketplaceProvider(client, context, NullLogger<YandexMarketMarketplaceProvider>.Instance);
+        var credentials = new MarketplaceCredentials(null, "key", 10, 20, YandexMarketModel.Fby);
+        var status = Assert.Single(await provider.FetchPostingStatusesAsync(credentials, ["100"], ExternalPostingScheme.Fbo, default));
+        Assert.Equal(MarketplaceOrderStatus.AwaitingDeliver, status.Status);
+        using var body = JsonDocument.Parse(handler.Requests[0].Body!);
+        Assert.Equal(100, body.RootElement.GetProperty("orderIds")[0].GetInt64());
+        Assert.Equal("FBY", body.RootElement.GetProperty("programTypes")[0].GetString());
+        using var scope = context.Use(credentials);
+        Assert.Equal(new DateTime(2026, 11, 20, 12, 0, 0, DateTimeKind.Utc), await client.GetEarliestPostingDateAsync(default));
+    }
+
+    [Fact]
+    public async Task CampaignValidation_RejectsModelChangesDuringKeyRotation()
+    {
+        using var handler = new Handler((request, index) => Json("""
+            {"campaigns":[{"id":20,"business":{"id":10},"placementType":"FBY","apiAvailability":"AVAILABLE"}]}
+            """));
+        var (client, context) = Client(handler);
+        var provider = new YandexMarketMarketplaceProvider(client, context, NullLogger<YandexMarketMarketplaceProvider>.Instance);
+        Assert.True((await provider.ValidateAsync(new(null, "new-key", 10, 20, YandexMarketModel.Fby), default)).IsValid);
+        Assert.False((await provider.ValidateAsync(new(null, "new-key", 10, 20, YandexMarketModel.Fbs), default)).IsValid);
+    }
+
+    [Fact]
+    public async Task Orders_RejectUnknownProgramInsteadOfTreatingItAsFby()
+    {
+        using var handler = new Handler((request, index) => Json("""
+            {"orders":[{"orderId":100,"campaignId":20,"programType":"FUTURE_PROGRAM","status":"DELIVERED",
+             "substatus":"DELIVERED_USER_RECEIVED","creationDate":"2026-11-20T12:00:00Z","items":[],"delivery":{"dates":{}}}]}
+            """));
+        var (client, context) = Client(handler);
+        using var scope = context.Use(new(null, "key", 10, 20, YandexMarketModel.Fby));
+        await Assert.ThrowsAsync<YandexMarketApiException>(async () =>
+        {
+            await foreach (var page in client.GetPostingsAsync(new(ExternalPostingScheme.Fbo,
+                new(2026, 11, 20), new(2026, 11, 21)), default)) { }
+        });
     }
 
     [Fact]

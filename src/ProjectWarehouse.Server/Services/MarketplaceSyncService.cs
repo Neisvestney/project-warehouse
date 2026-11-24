@@ -76,7 +76,7 @@ public class MarketplaceSyncService(
 
         var provider = providers.Get(account.Type);
         var credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey,
-            account.ExternalBusinessId, account.ExternalCampaignId);
+            account.ExternalBusinessId, account.ExternalCampaignId, account.YandexMarketModel);
         var before = mapper.Map<MarketplaceAccountDto>(account);
 
         try

@@ -896,6 +896,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("YandexMarketModel")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedById");

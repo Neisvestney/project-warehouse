@@ -1828,4 +1828,5 @@ export type {
   WriteoffTransition,
   XyzClass,
   YandexMarketCampaignDto,
+  YandexMarketModel,
 } from "./types.gen";

@@ -177,7 +177,7 @@ function MarketplaceAccountCreatePage() {
                   render={({field, fieldState}) => (
                     <Stack spacing={0.5}>
                       <Typography variant="body2" color="text.secondary">
-                        Кампания FBS
+                        Кампания FBS / FBY
                       </Typography>
                       <Select
                         {...field}
@@ -196,7 +196,7 @@ function MarketplaceAccountCreatePage() {
                         </MenuItem>
                         {campaigns.map((c) => (
                           <MenuItem key={c.campaignId} value={String(c.campaignId)}>
-                            {c.name} · {c.campaignId} · {c.businessName}
+                            {c.name} · {c.model.toUpperCase()} · {c.campaignId} · {c.businessName}
                           </MenuItem>
                         ))}
                       </Select>
@@ -209,7 +209,7 @@ function MarketplaceAccountCreatePage() {
                   )}
                 />
                 {campaignResult?.key === apiKey && campaigns.length === 0 && (
-                  <Alert severity="info">У ключа нет доступных кампаний FBS.</Alert>
+                  <Alert severity="info">У ключа нет доступных кампаний FBS или FBY.</Alert>
                 )}
                 <Typography variant="body2" color="text.secondary">
                   Каждый магазин подключается отдельно. Кампанию подключённого магазина изменить

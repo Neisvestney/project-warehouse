@@ -180,7 +180,7 @@ public class MarketplaceLabelService(
                 "The stored API key can no longer be decrypted.");
 
         var credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey,
-            account.ExternalBusinessId, account.ExternalCampaignId);
+            account.ExternalBusinessId, account.ExternalCampaignId, account.YandexMarketModel);
 
         // Multibox postings go one at a time: Ozon does not document whether such a posting prints as
         // one page or one per box, and an unexpected page count would shift a whole batch — putting one

@@ -12,7 +12,7 @@ public sealed class YandexMarketMarketplaceProvider(IYandexMarketClient client, 
     public MarketplaceType Type => MarketplaceType.YandexMarket;
     public MarketplaceCapabilities Capabilities => MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards
         | MarketplaceCapabilities.SellerInfo | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels
-        | MarketplaceCapabilities.Returns | MarketplaceCapabilities.Accruals;
+        | MarketplaceCapabilities.Returns | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Fbo;
     public bool RequiresClientId => false;
 
     public async Task<CredentialsValidationResult> ValidateAsync(MarketplaceCredentials credentials, CancellationToken ct)
@@ -21,9 +21,9 @@ public sealed class YandexMarketMarketplaceProvider(IYandexMarketClient client, 
         {
             var campaigns = await CallAsync(credentials, () => client.GetCampaignsAsync(ct));
             return credentials.CampaignId is null || campaigns.Any(c => c.CampaignId == credentials.CampaignId
-                    && c.BusinessId == credentials.BusinessId)
+                    && c.BusinessId == credentials.BusinessId && c.Model == credentials.YandexMarketModel)
                 ? CredentialsValidationResult.Valid()
-                : CredentialsValidationResult.Invalid("The key cannot access the selected FBS campaign.");
+                : CredentialsValidationResult.Invalid("The key cannot access the selected campaign and model.");
         }
         catch (MarketplaceApiException ex) when (ex.IsCredentialsRejected)
         {
@@ -43,8 +43,9 @@ public sealed class YandexMarketMarketplaceProvider(IYandexMarketClient client, 
         ExternalPostingQuery query, CancellationToken ct) => PagesAsync(credentials, client.GetPostingsAsync(query, ct), ct);
     public Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(MarketplaceCredentials credentials,
         IReadOnlyList<string> postingNumbers, ExternalPostingScheme scheme, CancellationToken ct) =>
-        scheme == ExternalPostingScheme.Fbs ? CallAsync(credentials, () => client.GetPostingStatusesAsync(postingNumbers, ct))
-            : throw new NotSupportedException();
+        (scheme == ExternalPostingScheme.Fbo) == (credentials.YandexMarketModel == YandexMarketModel.Fby)
+            ? CallAsync(credentials, () => client.GetPostingStatusesAsync(postingNumbers, ct))
+            : Task.FromResult<IReadOnlyList<ExternalPostingStatus>>([]);
     public IAsyncEnumerable<IReadOnlyList<ExternalReturn>> FetchReturnsAsync(MarketplaceCredentials credentials,
         ExternalReturnQuery query, CancellationToken ct) => PagesAsync(credentials, client.GetReturnsAsync(query, ct), ct);
     public IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchAccrualsAsync(MarketplaceCredentials credentials,

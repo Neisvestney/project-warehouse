@@ -86,6 +86,10 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
             <>
               <InfoRow label="ID бизнеса" value={String(account.externalBusinessId ?? "—")} />
               <InfoRow label="ID кампании" value={String(account.externalCampaignId ?? "—")} />
+              <InfoRow
+                label="Модель работы"
+                value={account.yandexMarketModel?.toUpperCase() ?? "—"}
+              />
               {account.accrualsPausedUntil && (
                 <InfoRow
                   label="Пауза начислений до"

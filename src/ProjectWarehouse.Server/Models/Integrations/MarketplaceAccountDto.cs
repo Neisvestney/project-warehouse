@@ -21,6 +21,7 @@ public class MarketplaceAccountDto : IHasIdentity
     public string? ExternalClientId { get; init; }
     public long? ExternalBusinessId { get; init; }
     public long? ExternalCampaignId { get; init; }
+    public YandexMarketModel? YandexMarketModel { get; init; }
     public DateTime? AccrualsPausedUntil { get; init; }
 
     public string? CompanyLegalName { get; init; }

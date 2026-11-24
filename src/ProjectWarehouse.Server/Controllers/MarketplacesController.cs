@@ -196,6 +196,7 @@ public class MarketplacesController(
             ExternalClientId = provider.RequiresClientId ? request.ClientId : null,
             ExternalBusinessId = campaign?.BusinessId,
             ExternalCampaignId = campaign?.CampaignId,
+            YandexMarketModel = campaign?.Model,
             ApiKeyProtected = protector.Protect(request.ApiKey),
             ApiKeyLast4 = protector.Last4(request.ApiKey),
             ApiKeyUpdatedAt = now,
@@ -261,6 +262,9 @@ public class MarketplacesController(
             var selection = await yandexConnection.ValidateAsync(request.ApiKey, account.ExternalCampaignId,
                 account.ExternalBusinessId, ct);
             if (selection.Problem is not null) return Problem(selection.Problem);
+            if (selection.Campaign!.Model != account.YandexMarketModel)
+                return UnprocessableEntity("apiKey", ErrorCode.ValidationError,
+                    "The selected Yandex Market campaign model has changed.");
         }
         account.ExternalClientId = provider.RequiresClientId ? request.ClientId : null;
         account.ShortName = NormalizeShortName(request.ShortName);
@@ -434,7 +438,8 @@ public class MarketplacesController(
                     "The stored API key can no longer be decrypted — enter it again.");
 
             provider = providers.Get(account.Type);
-            credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey, account.ExternalBusinessId, account.ExternalCampaignId);
+            credentials = new MarketplaceCredentials(account.ExternalClientId, apiKey, account.ExternalBusinessId,
+                account.ExternalCampaignId, account.YandexMarketModel);
         }
 
         try
@@ -581,7 +586,8 @@ public class MarketplacesController(
         try
         {
             var firstPostingAt = await provider.FetchEarliestPostingDateAsync(
-                new MarketplaceCredentials(account.ExternalClientId, apiKey, account.ExternalBusinessId, account.ExternalCampaignId), ct);
+                new MarketplaceCredentials(account.ExternalClientId, apiKey, account.ExternalBusinessId,
+                    account.ExternalCampaignId, account.YandexMarketModel), ct);
 
             return Ok(new BackfillBoundsDto { FirstOrderAt = firstOrderAt, FirstPostingAt = firstPostingAt });
         }

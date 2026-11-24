@@ -10,6 +10,8 @@ public sealed partial class YandexMarketClient
 {
     public async Task<ExternalLabelDocument> GetLabelsAsync(IReadOnlyList<string> ids, CancellationToken ct)
     {
+        if (IsFby)
+            return new(false, ids, null, null, ids.Select(id => new ExternalLabelFailure(id, null)).ToArray());
         var pages = new List<ExternalLabelPage>();
         var unprinted = new List<ExternalLabelFailure>();
         var unreadable = new List<ExternalLabelFailure>();

@@ -37,6 +37,7 @@ public class MarketplaceAccount : IHasIdentity
 
     public long? ExternalBusinessId { get; set; }
     public long? ExternalCampaignId { get; set; }
+    public YandexMarketModel? YandexMarketModel { get; set; }
     public DateTime? AccrualsPausedUntil { get; set; }
 
     /// <summary>Api-Key ciphertext. Only IMarketplaceCredentialProtector may open it.</summary>

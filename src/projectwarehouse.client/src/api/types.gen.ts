@@ -1768,6 +1768,7 @@ export type MarketplaceAccountDto = {
   externalClientId?: null | string;
   externalBusinessId?: null | number;
   externalCampaignId?: null | number;
+  yandexMarketModel?: null | YandexMarketModel;
   accrualsPausedUntil?: null | string;
   companyLegalName?: null | string;
   inn?: null | string;
@@ -5017,7 +5018,10 @@ export type YandexMarketCampaignDto = {
   businessId: number;
   name: string;
   businessName: null | string;
+  model: YandexMarketModel;
 };
+
+export type YandexMarketModel = "fbs" | "fby";
 
 export type GetHealthData = {
   body?: never;

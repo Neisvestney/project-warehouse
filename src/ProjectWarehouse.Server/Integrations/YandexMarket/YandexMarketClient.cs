@@ -27,6 +27,7 @@ public sealed partial class YandexMarketClient(
         ?? throw new InvalidOperationException("Yandex Market business is not selected.");
     private long CampaignId => Credentials.CampaignId
         ?? throw new InvalidOperationException("Yandex Market campaign is not selected.");
+    private bool IsFby => Credentials.YandexMarketModel == YandexMarketModel.Fby;
 
     public async Task<IReadOnlyList<YandexMarketCampaignDto>> GetCampaignsAsync(CancellationToken ct)
     {
@@ -37,10 +38,11 @@ public sealed partial class YandexMarketClient(
         {
             var response = await api.GetCampaignsAsync(token, 100, ct);
             campaigns.AddRange(response.Campaigns
-                .Where(c => c.PlacementType == PlacementType.FBS
+                .Where(c => c.PlacementType is PlacementType.FBS or PlacementType.FBY
                     && c.ApiAvailability == ApiAvailabilityStatusType.AVAILABLE && c.Id > 0 && c.Business?.Id > 0)
                 .Select(c => new YandexMarketCampaignDto(c.Id!.Value, c.Business!.Id!.Value,
-                    c.Domain ?? Id(c.Id.Value), c.Business.Name)));
+                    c.Domain ?? Id(c.Id.Value), c.Business.Name,
+                    c.PlacementType == PlacementType.FBY ? YandexMarketModel.Fby : YandexMarketModel.Fbs)));
             token = Next(response.Paging?.NextPageToken, seen);
             if (token is not null) await PauseAsync(ct);
         } while (token is not null);
@@ -56,6 +58,7 @@ public sealed partial class YandexMarketClient(
 
     public async Task<IReadOnlyList<ExternalWarehouse>> GetWarehousesAsync(CancellationToken ct)
     {
+        if (IsFby) return [];
         var result = new List<ExternalWarehouse>();
         string? token = null;
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -96,16 +99,20 @@ public sealed partial class YandexMarketClient(
         } while (token is not null);
     }
 
-    public IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetActivePostingsAsync(CancellationToken ct) =>
-        ReadOrdersAsync(new GetBusinessOrdersRequest
+    public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetActivePostingsAsync(
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        if (IsFby) yield break;
+        await foreach (var page in ReadOrdersAsync(new GetBusinessOrdersRequest
         {
             Statuses = [OrderStatusType.PROCESSING],
-        }, ct);
+        }, ct)) yield return page;
+    }
 
     public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetPostingsAsync(ExternalPostingQuery query,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        if (query.Scheme != ExternalPostingScheme.Fbs) yield break;
+        if ((query.Scheme == ExternalPostingScheme.Fbo) != IsFby) yield break;
         var since = query.StatusChangedSince ?? query.Since;
         var windows = query.StatusChangedSince is not null ? Windows(since, query.To)
             : Windows(query.Since.AddHours(3).Date, query.To.AddHours(3).Date.AddDays(1));
@@ -125,6 +132,7 @@ public sealed partial class YandexMarketClient(
         [EnumeratorCancellation] CancellationToken ct)
     {
         request.CampaignIds = [CampaignId];
+        request.ProgramTypes = IsFby ? [SellingProgramType.FBY] : [SellingProgramType.FBS, SellingProgramType.EXPRESS];
         request.Fake = false;
         string? token = null;
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -132,8 +140,10 @@ public sealed partial class YandexMarketClient(
         {
             var response = await api.GetBusinessOrdersAsync(BusinessId, token, 50, request, ct);
             yield return response.Orders.Where(o => o.CampaignId == CampaignId && !o.Fake
+                    && (o.ProgramType is null || (IsFby ? o.ProgramType == SellingProgramType.FBY
+                        : o.ProgramType is SellingProgramType.FBS or SellingProgramType.EXPRESS))
                     && o.Status is not (OrderStatusType.PLACING or OrderStatusType.RESERVED or OrderStatusType.UNPAID or OrderStatusType.PENDING))
-                .Select(MapPosting).ToArray();
+                .Select(o => MapPosting(o, IsFby ? ExternalPostingScheme.Fbo : ExternalPostingScheme.Fbs)).ToArray();
             token = Next(response.Paging?.NextPageToken, seen);
             if (token is not null) await PauseAsync(ct);
         } while (token is not null);
@@ -163,7 +173,7 @@ public sealed partial class YandexMarketClient(
         {
             var from = to.AddDays(-30);
             var found = false;
-            await foreach (var page in GetPostingsAsync(new(ExternalPostingScheme.Fbs, from, to), ct))
+            await foreach (var page in GetPostingsAsync(new(IsFby ? ExternalPostingScheme.Fbo : ExternalPostingScheme.Fbs, from, to), ct))
                 foreach (var posting in page)
                     if (posting.CreatedAt is { } date)
                     {
@@ -176,8 +186,9 @@ public sealed partial class YandexMarketClient(
         return earliest;
     }
 
-    public ExternalPosting MapPosting(BusinessOrderDTO order)
+    public ExternalPosting MapPosting(BusinessOrderDTO order, ExternalPostingScheme scheme = ExternalPostingScheme.Fbs)
     {
+        var fby = scheme == ExternalPostingScheme.Fbo;
         var items = order.Items.Select(i => new ExternalPostingItem(null, i.OfferId, i.OfferName, i.Count,
             CustomerPrice: i.Prices?.Payment is { } paid ? (paid.Value + (i.Prices.Cashback?.Value ?? 0)) / PositiveCount(i.Count) : null,
             CustomerCurrencyCode: i.Prices?.Payment?.CurrencyId.ToString(),
@@ -185,20 +196,23 @@ public sealed partial class YandexMarketClient(
                 + (i.Prices.Subsidy?.Value ?? 0)) / PositiveCount(i.Count) : null,
             CurrencyCode: i.Prices?.Payment?.CurrencyId.ToString(), ExternalItemId: Id(i.Id))).ToArray();
         var index = order.Items.Select((item, i) => (item.Id, Index: i)).ToDictionary(x => x.Id, x => x.Index);
-        var parcels = order.Delivery.BoxesLayout?.Select(box => new ExternalParcel(Id(box.BoxId), box.Barcode,
+        var parcels = fby ? null : order.Delivery.BoxesLayout?.Select(box => new ExternalParcel(Id(box.BoxId), box.Barcode,
             box.Items.Select(i => new ExternalParcelItem(index.TryGetValue(i.Id, out var value) ? value
                     : throw new InvalidOperationException("Yandex Market parcel references an unknown order item."),
                 i.PartialCount is null ? i.FullCount : null, i.PartialCount?.Current, i.PartialCount?.Total)).ToArray()))
             .ToArray();
-        var status = NormalizeStatus(order.Status, order.Substatus);
+        var status = fby && order.Status == OrderStatusType.PROCESSING
+            ? MarketplaceOrderStatus.AwaitingDeliver : NormalizeStatus(order.Status, order.Substatus);
         var reason = order.Substatus.ToString();
         var cancellation = status == MarketplaceOrderStatus.Cancelled
             ? new ExternalCancellation(null, MarketplaceCancellationType.Unknown, reason, null, LossReason(reason), reason)
             : null;
         return new(Id(order.OrderId), null, status, order.Status.ToString(), order.Substatus.ToString(),
-            order.Delivery.WarehouseId, order.Delivery.ServiceName, order.Delivery.Shipment?.ShipmentDate.UtcDateTime,
-            order.CreationDate.UtcDateTime, order.Delivery.Tracks?.FirstOrDefault()?.TrackCode,
-            parcels?.Length ?? 1, cancellation, items, CreatedAt: order.CreationDate.UtcDateTime, Parcels: parcels);
+            fby ? null : order.Delivery.WarehouseId, fby ? null : order.Delivery.ServiceName,
+            fby ? null : order.Delivery.Shipment?.ShipmentDate.UtcDateTime,
+            order.CreationDate.UtcDateTime, fby ? null : order.Delivery.Tracks?.FirstOrDefault()?.TrackCode,
+            parcels?.Length ?? 1, cancellation, items, Scheme: scheme,
+            CreatedAt: order.CreationDate.UtcDateTime, Parcels: parcels);
     }
 
     public MarketplaceOrderStatus NormalizeStatus(OrderStatusType status, OrderSubstatusType substatus)

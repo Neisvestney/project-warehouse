@@ -837,9 +837,10 @@ public class MarketplaceOrderSyncService(
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
         var to = DateTime.UtcNow;
+        var yandex = account.Type == MarketplaceType.YandexMarket;
         var since = account.FboPostingsSyncedAt is { } syncedAt
-            ? syncedAt.AddHours(-_ozon.FboImportOverlapHours)
-            : to.AddDays(-_ozon.FboImportWindowPastDays);
+            ? syncedAt.AddHours(-(yandex ? _yandex.ImportOverlapHours : _ozon.FboImportOverlapHours))
+            : to.AddDays(-(yandex ? _yandex.ImportWindowPastDays : _ozon.FboImportWindowPastDays));
 
         await ImportExternalPostingsAsync(provider, credentials, account, run,
             new ExternalPostingQuery(ExternalPostingScheme.Fbo, since, to), refreshKnown: true, ct);
