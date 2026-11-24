@@ -14,6 +14,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {Link} from "react-router";
@@ -49,7 +50,7 @@ import {useBackClosable} from "@/hooks/useBackClosable";
 
 const DRAWER_WIDTH = 1000;
 
-interface StoragePlaceDialogProps {
+interface StoragePlaceDrawerProps {
   open: boolean;
   storagePlace?: StoragePlaceDto;
   warehouseId: string;
@@ -61,7 +62,7 @@ type NodeDialogState =
   | {mode: "addChild"; parentId: string}
   | {mode: "rename"; node: StoragePlaceNodeDto};
 
-function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StoragePlaceDialogProps) {
+function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StoragePlaceDrawerProps) {
   const [shownPlace, releaseShownPlace] = useRetainedValue(open ? storagePlace : null);
   const queryClient = useQueryClient();
 
@@ -304,48 +305,31 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
             {shownPlace?.name ?? ""}
           </Typography>
           <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
-            {selectedNodeId && (
-              <Button
-                size="small"
-                startIcon={<Inventory2Icon />}
-                component={Link}
-                to={`/storage/warehouses/${warehouseId}/storage-places/${shownPlace?.id}/nodes/${selectedNodeId}/inventory`}
-                disabled={!!nodes.find((x) => x.parentNodeId == selectedNodeId)}
-              >
-                Остатки ячейки
-              </Button>
-            )}
-            <Button
-              size="small"
-              startIcon={<Inventory2Icon />}
-              component={Link}
-              to={`/storage/warehouses/${warehouseId}/storage-places/${shownPlace?.id}/inventory`}
-              disabled={!shownPlace?.id}
-            >
-              Остатки
-            </Button>
-            <Button
-              size="small"
-              startIcon={<PrintIcon />}
-              disabled={isLoading || nodes.length === 0}
-              onClick={printLabels}
-            >
-              Этикетки
-            </Button>
-            {isTreeEditMode ? (
-              <Button
-                size="small"
-                startIcon={<CheckIcon />}
-                color="success"
-                onClick={() => setIsTreeEditMode(false)}
-              >
-                Готово
-              </Button>
-            ) : (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => setIsTreeEditMode(true)}>
-                Редактировать ячейки
-              </Button>
-            )}
+            <Tooltip title="Остатки">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Остатки"
+                  component={Link}
+                  to={`/storage/warehouses/${warehouseId}/storage-places/${shownPlace?.id}/inventory`}
+                  disabled={!shownPlace?.id}
+                >
+                  <Inventory2Icon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Печать этикеток">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Печать этикеток"
+                  disabled={isLoading || nodes.length === 0}
+                  onClick={printLabels}
+                >
+                  <PrintIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
             <IconButton onClick={handleClose} size="small">
               <CloseIcon />
             </IconButton>
@@ -402,9 +386,44 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
                       nodes={nodes}
                       selectedNodeId={selectedNodeId}
                       onSelect={setSelectedNodeId}
+                      renderNodeActions={(node, isLeaf) =>
+                        isLeaf && (
+                          <Tooltip title="Остатки ячейки">
+                            <IconButton
+                              size="small"
+                              aria-label={`Остатки ячейки ${node.name}`}
+                              component={Link}
+                              to={`/storage/warehouses/${warehouseId}/storage-places/${shownPlace?.id}/nodes/${node.id}/inventory`}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <Inventory2Icon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )
+                      }
                     />
                   )}
                 </Paper>
+              )}
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{pt: 1}}>
+              {isTreeEditMode ? (
+                <Button
+                  size="small"
+                  startIcon={<CheckIcon />}
+                  color="success"
+                  onClick={() => setIsTreeEditMode(false)}
+                >
+                  Готово
+                </Button>
+              ) : (
+                <Button
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={() => setIsTreeEditMode(true)}
+                >
+                  Редактировать ячейки
+                </Button>
               )}
             </Stack>
           </Stack>

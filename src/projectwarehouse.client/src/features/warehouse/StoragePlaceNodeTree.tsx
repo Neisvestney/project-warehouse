@@ -1,7 +1,7 @@
 import {Box, Chip, CircularProgress, Stack, Typography} from "@mui/material";
 import {SimpleTreeView} from "@mui/x-tree-view/SimpleTreeView";
 import {TreeItem} from "@mui/x-tree-view/TreeItem";
-import {useMemo} from "react";
+import {type ReactNode, useMemo} from "react";
 
 export interface StoragePlaceNodeTreeNode {
   id: string;
@@ -19,6 +19,7 @@ export interface StoragePlaceNodeTreeProps {
   isLoading?: boolean;
   expandedItems?: string[];
   onExpandedItemsChange?: (ids: string[]) => void;
+  renderNodeActions?: (node: StoragePlaceNodeTreeNode, isLeaf: boolean) => ReactNode;
 }
 
 type TreeNode = StoragePlaceNodeTreeNode & {
@@ -62,7 +63,10 @@ function buildTree(nodes: StoragePlaceNodeTreeNode[]): TreeNode[] {
   return roots;
 }
 
-function renderNodes(nodes: TreeNode[]): React.ReactNode {
+function renderNodes(
+  nodes: TreeNode[],
+  renderNodeActions?: StoragePlaceNodeTreeProps["renderNodeActions"],
+): ReactNode {
   return nodes.map((node) => (
     <TreeItem
       key={node.id}
@@ -94,10 +98,13 @@ function renderNodes(nodes: TreeNode[]): React.ReactNode {
           {node.totalItemsCount > 0 && (
             <Chip label={node.totalItemsCount} size="small" color="primary" variant="outlined" />
           )}
+          {renderNodeActions && (
+            <Box sx={{ml: "auto"}}>{renderNodeActions(node, node.children.length === 0)}</Box>
+          )}
         </Stack>
       }
     >
-      {renderNodes(node.children)}
+      {renderNodes(node.children, renderNodeActions)}
     </TreeItem>
   ));
 }
@@ -109,6 +116,7 @@ function StoragePlaceNodeTree({
   isLoading,
   expandedItems,
   onExpandedItemsChange,
+  renderNodeActions,
 }: StoragePlaceNodeTreeProps) {
   const tree = useMemo(() => buildTree(nodes), [nodes]);
 
@@ -139,7 +147,7 @@ function StoragePlaceNodeTree({
         onExpandedItemsChange ? (_e, ids) => onExpandedItemsChange(ids) : undefined
       }
     >
-      {renderNodes(tree)}
+      {renderNodes(tree, renderNodeActions)}
     </SimpleTreeView>
   );
 }

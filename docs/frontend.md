@@ -970,14 +970,15 @@ the breadcrumbs: `InventoryPage` (`/storage/inventory`, no ids — warehouse fil
 
 `WarehouseViewPage` renders a pan/zoom Konva canvas of storage place rectangles (`WarehouseCanvas` from
 `features/warehouse/`). Clicking a place opens `StoragePlaceDrawer` (`?storagePlace=`), a wide right drawer
-holding a `StoragePlaceNodeTree`; selecting a leaf node offers a link to that node's inventory page (disabled
-for nodes that have children — only leaves hold stock).
+holding a `StoragePlaceNodeTree`. Each leaf row has an inventory icon linking to that node's inventory page;
+only leaves hold stock. Header icons open the place's inventory and print its labels.
 
 **"Этикетки"** fetches `GET /api/warehouses/{id}/print` and calls `openPrintPage` with every node as a
 `DataMatrix` label (value = `formatEntityBarcode("storagePlaceNode", node.id)`, label = the full path joined by
 ` / `). `StoragePlaceDrawer` has its own button printing only that place's nodes in the same format.
 
-**"Редактировать ячейки"** (inside the drawer) toggles tree edit mode: the tree switches from
+**"Редактировать ячейки"** below the tree toggles tree edit mode; **"Готово"** in the same position exits it.
+The tree switches from
 `StoragePlaceNodeTree` to `SortableNodeTree`, each row gains add-child / rename / delete actions and a drag
 handle, and reorder calls `PUT .../nodes/reorder`. All operations update the nodes query cache in place from the
 returned flat list.

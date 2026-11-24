@@ -1689,7 +1689,8 @@ must wrap it in a container with a fixed height**. The caller also decides the `
 and may override the text label — that is why the render item type is the component's own, not the DTO.
 
 `StoragePlaceNodeTree` is a read-only `SimpleTreeView` that builds the tree internally from a flat list, and
-optionally shows a coloured dot per node when `hasOrderItems` is present.
+optionally shows a coloured dot per node when `hasOrderItems` is present. The optional `renderNodeActions(node,
+isLeaf)` slot places actions at the right of each row; callers stop click propagation on interactive actions.
 
 `WarehouseEditPage` has a **separate** `WarehouseCanvas` of its own with drag/resize/add behaviour — do not
 confuse the two.
