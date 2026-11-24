@@ -34,6 +34,7 @@ import {formatOrderNumber} from "@/components/orders/orderUtils";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
+import {MARKETPLACE_TYPE_COLORS} from "@/components/marketplace/marketplaceUtils";
 
 function bucketTitle(bucket: PayoutsBucket, settings: PayoutsDto["settings"]): string {
   switch (bucket) {
@@ -224,7 +225,10 @@ function PayoutsPostingsDialogContent({
                       ariaLabel={`Заказ ${formatOrderNumber(p.orderNumber)}`}
                     >
                       <TableCell sx={{whiteSpace: "nowrap"}}>
-                        {formatPostingNumber(p.postingNumber)}
+                        {formatPostingNumber(
+                          p.postingNumber,
+                          MARKETPLACE_TYPE_COLORS[p.marketplaceType],
+                        )}
                       </TableCell>
                       <TableCell>{formatOrderNumber(p.orderNumber)}</TableCell>
                       {showShop && (
@@ -275,7 +279,7 @@ function PostingCard({
     <Paper variant="outlined" sx={{p: 1.5}}>
       <Stack direction="row" sx={{justifyContent: "space-between", alignItems: "baseline", gap: 1}}>
         <Typography variant="body2" sx={{whiteSpace: "nowrap"}}>
-          {formatPostingNumber(p.postingNumber)}
+          {formatPostingNumber(p.postingNumber, MARKETPLACE_TYPE_COLORS[p.marketplaceType])}
         </Typography>
         <Link component={RouterLink} to={`/operations/orders/${p.orderId}`} variant="body2">
           {formatOrderNumber(p.orderNumber)}

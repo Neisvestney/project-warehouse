@@ -1292,8 +1292,14 @@ with `-` (`?tags=a,b,-c`); a plain id list is the include-only case.
 The orders list is shared by every order type, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[]`,
 `extraColumns?: {key, label, render, sortBy?, align?, noWrap?, defaultHidden?}[]` (`noWrap` keeps a column such as the posting number on one line, header included), `marketplaceFilters?`, `supplyFilter?`, `defaultIncludeExternal?`, `showExternalFilter?`,
-`hiddenColumns?: OrderSortBy[]`, `alwaysShownStatusDates?: OrderStatus[]`, `statusDateLabels?` and `showNotes?`. That keeps marketplace imports —
+`hiddenColumns?: OrderSortBy[]`, `alwaysShownStatusDates?: OrderStatus[]`, `statusDateLabels?` and `showNotes?`. That keeps marketplace synchronization actions —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
+
+`OrdersListPage` owns the sortable «Площадка» column. It renders the marketplace name as a small chip in its
+brand color, or «—» for an order without a marketplace. The column is always visible for FBO postings;
+other order lists offer it as an initially hidden column in the display settings.
+FBO postings also show «Аккаунт продавца» by default, with sorting by account name; the display settings
+allow hiding this column.
 
 `bulkActions` receives **every** selected order, not just the subset a built-in action cares about. Built-in
 status transitions come from `getOrderBulkTransitions(type)` in `orderBulkTransitions.tsx`: each entry names its

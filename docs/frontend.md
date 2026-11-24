@@ -215,8 +215,8 @@ if (query.isError)
 
 ### Номер отправления
 
-`formatPostingNumber(postingNumber)` from `@/utils/postingNumberUtils` returns a `ReactNode` where the last 4
-digits of the first segment sit on a bold inverted plate (`text.primary` background, `background.paper` text) —
+`formatPostingNumber(postingNumber, color?)` from `@/utils/postingNumberUtils` returns a `ReactNode` where the last 4
+digits of the first segment sit on a bold plate —
 that's the part warehouse staff actually reads off a label. `0132298262-0184-1` → `013229**8262**-0184-1`,
 `43468002-0359-1` → `4346**8002**-0359-1`, `1234567890` → `123456**7890**`. Strings that don't start with at least
 4 digits are returned unchanged; `null`/`undefined`/`""` give `null`.
@@ -225,7 +225,12 @@ Used everywhere a posting number is rendered: the `postingNumber` extra column i
 **Отправление** row in `OrderMetaSection`, and the failure list in `SkippedOrdersList` (there it sits inside the
 existing `<b>`, so the whole number stays bold and the 4 digits keep the plate).
 
-`formatLabelBarcode(labelBarcode)` from the same module formats the number printed on the label (`labelBarcode`:
+The optional `color` is the marketplace palette key from `MARKETPLACE_TYPE_COLORS` (`ozon`, `wb`, `ym`):
+the plate uses its `main` background and `contrastText` text in either theme. Order lists, order details,
+assembly order summaries and payout postings supply this key. Without marketplace context, the plate uses
+`text.primary` background and `background.paper` text.
+
+`formatLabelBarcode(labelBarcode, color?)` from the same module formats the number printed on the label (`labelBarcode`:
 the Ozon scanit, `ii` + 11 digits, or the Wildberries sticker number, `partA` + `partB`) with the same highlight
 plate, applied to the last 4 digits of the whole string: `ii50082087036` → `ii5008208**7036**`,
 `2316489753` → `231648**9753**`. Strings that don't end with 4 digits are returned unchanged;

@@ -12,7 +12,7 @@ import type {OrderSummaryDto} from "@/api/types.gen";
 import {Tooltip, Typography} from "@mui/material";
 import {DateTimeText} from "@/components/DateTimeTableCell";
 import OrderCompositionPreview from "@/components/orders/OrderCompositionPreview";
-import {MARKETPLACE_TYPE_LABELS} from "@/components/marketplace/marketplaceUtils";
+import {MARKETPLACE_TYPE_COLORS} from "@/components/marketplace/marketplaceUtils";
 import {MARKETPLACE_ORDER_RETURN_STATE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
 
 function SupplyCell({order}: {order: OrderSummaryDto}) {
@@ -47,11 +47,19 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
     render: (order) => (
       <>
         <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-          {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
+          {formatPostingNumber(
+            order.marketplaceOrder?.postingNumber,
+            order.marketplaceOrder
+              ? MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]
+              : undefined,
+          ) ?? "—"}
         </Typography>
         {order.marketplaceOrder?.labelBarcode && (
           <Typography variant="caption" component="div" sx={{fontFamily: "monospace"}}>
-            {formatLabelBarcode(order.marketplaceOrder.labelBarcode)}
+            {formatLabelBarcode(
+              order.marketplaceOrder.labelBarcode,
+              MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType],
+            )}
           </Typography>
         )}
       </>
@@ -70,16 +78,6 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
     defaultHidden: true,
     sortBy: "composition",
     render: (order) => <OrderCompositionPreview order={order} variant="composition" />,
-  },
-  {
-    key: "marketplaceType",
-    label: "Маркетплейс",
-    defaultHidden: true,
-    sortBy: "marketplaceType",
-    render: (order) =>
-      order.marketplaceOrder
-        ? MARKETPLACE_TYPE_LABELS[order.marketplaceOrder.marketplaceType]
-        : "—",
   },
   {
     key: "marketplaceAccountName",

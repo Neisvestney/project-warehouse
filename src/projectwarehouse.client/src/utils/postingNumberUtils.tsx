@@ -6,7 +6,7 @@ const HIGHLIGHTED_PART_REGEX = /^(\d*)(\d{4})(?=-|$)/;
 const LABEL_BARCODE_HIGHLIGHTED_PART_REGEX = /^(.*?)(\d{4})$/;
 
 // Expects a match with exactly two groups: [1] prefix, [2] highlighted digits
-function highlight(value: string, match: RegExpExecArray): ReactNode {
+function highlight(value: string, match: RegExpExecArray, color?: string): ReactNode {
   return (
     <>
       {match[1]}
@@ -16,8 +16,8 @@ function highlight(value: string, match: RegExpExecArray): ReactNode {
           display: "inline-block",
           px: 0.5,
           borderRadius: 1,
-          bgcolor: "text.primary",
-          color: "background.paper",
+          bgcolor: color ? `${color}.main` : "text.primary",
+          color: color ? `${color}.contrastText` : "background.paper",
           fontWeight: "bold",
           lineHeight: 1.4,
         }}
@@ -29,20 +29,26 @@ function highlight(value: string, match: RegExpExecArray): ReactNode {
   );
 }
 
-export function formatPostingNumber(postingNumber: string | null | undefined): ReactNode {
+export function formatPostingNumber(
+  postingNumber: string | null | undefined,
+  color?: string,
+): ReactNode {
   if (!postingNumber) return null;
 
   const match = HIGHLIGHTED_PART_REGEX.exec(postingNumber);
   if (!match) return postingNumber;
 
-  return highlight(postingNumber, match);
+  return highlight(postingNumber, match, color);
 }
 
-export function formatLabelBarcode(labelBarcode: string | null | undefined): ReactNode {
+export function formatLabelBarcode(
+  labelBarcode: string | null | undefined,
+  color?: string,
+): ReactNode {
   if (!labelBarcode) return null;
 
   const match = LABEL_BARCODE_HIGHLIGHTED_PART_REGEX.exec(labelBarcode);
   if (!match) return labelBarcode;
 
-  return highlight(labelBarcode, match);
+  return highlight(labelBarcode, match, color);
 }

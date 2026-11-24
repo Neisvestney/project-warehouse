@@ -3,6 +3,7 @@ import OrdersListPage from "@/components/orders/OrdersListPage";
 import type {OrdersListExtraColumn} from "@/components/orders/OrdersListPage";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import MarketplaceOrderReconstructedChip from "@/components/orders/marketplace/MarketplaceOrderReconstructedChip";
+import {MARKETPLACE_TYPE_COLORS} from "@/components/marketplace/marketplaceUtils";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
 import type {OrderSortBy, OrderStatus} from "@/api/types.gen";
 
@@ -15,6 +16,13 @@ const STATUS_DATES: OrderStatus[] = ["shipped"];
 const STATUS_DATE_LABELS: Partial<Record<OrderStatus, string>> = {shipped: "Оформлен"};
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
+  {
+    key: "marketplaceAccountName",
+    label: "Аккаунт продавца",
+    sortBy: "marketplaceAccountName",
+    defaultHidden: false,
+    render: (order) => order.marketplaceOrder?.marketplaceAccountName ?? "—",
+  },
   {
     key: "marketplaceStatus",
     label: "Статус на площадке",
@@ -32,7 +40,12 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
     noWrap: true,
     render: (order) => (
       <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-        {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
+        {formatPostingNumber(
+          order.marketplaceOrder?.postingNumber,
+          order.marketplaceOrder
+            ? MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]
+            : undefined,
+        ) ?? "—"}
       </Typography>
     ),
   },

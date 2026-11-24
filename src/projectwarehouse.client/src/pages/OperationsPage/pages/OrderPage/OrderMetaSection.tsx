@@ -26,6 +26,7 @@ import CopyableText from "@/components/CopyableText";
 import UserChip from "@/components/shared/UserChip";
 import WarehouseChip from "@/components/shared/WarehouseChip";
 import {formatPostingNumber, formatLabelBarcode} from "@/utils/postingNumberUtils";
+import {MARKETPLACE_TYPE_COLORS} from "@/components/marketplace/marketplaceUtils";
 import OrderMarketplaceReturnsDetails from "./OrderMarketplaceReturnsDetails";
 
 function formatDate(iso: string | null | undefined): string {
@@ -196,7 +197,10 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
                 successMessage="Номер отправления скопирован"
                 textStyle={{fontFamily: "monospace"}}
               >
-                {formatPostingNumber(order.marketplaceOrder.postingNumber)}
+                {formatPostingNumber(
+                  order.marketplaceOrder.postingNumber,
+                  MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType],
+                )}
               </CopyableText>
             }
           />
@@ -209,7 +213,10 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
                   successMessage="Номер с этикетки скопирован"
                   textStyle={{fontFamily: "monospace"}}
                 >
-                  {formatLabelBarcode(order.marketplaceOrder.labelBarcode)}
+                  {formatLabelBarcode(
+                    order.marketplaceOrder.labelBarcode,
+                    MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType],
+                  )}
                 </CopyableText>
               }
             />

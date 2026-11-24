@@ -84,6 +84,10 @@ import type {
 } from "@/api/types.gen";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {
+  MARKETPLACE_TYPE_COLORS,
+  MARKETPLACE_TYPE_LABELS,
+} from "@/components/marketplace/marketplaceUtils";
 
 const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -164,6 +168,22 @@ const EMPTY_EXTRA_COLUMNS: OrdersListExtraColumn[] = [];
 const EMPTY_STATUS_DATES: OrderStatus[] = [];
 const EMPTY_STATUS_DATE_LABELS: Partial<Record<OrderStatus, string>> = {};
 
+const MARKETPLACE_COLUMN: OrdersListExtraColumn = {
+  key: "marketplaceType",
+  label: "Площадка",
+  sortBy: "marketplaceType",
+  render: (order) =>
+    order.marketplaceOrder ? (
+      <Chip
+        size="small"
+        label={MARKETPLACE_TYPE_LABELS[order.marketplaceOrder.marketplaceType]}
+        color={MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]}
+      />
+    ) : (
+      "—"
+    ),
+};
+
 const FBS_BASE_COLUMNS: TableColumnOption[] = [
   ...SORT_COLUMNS.filter((c) => c.key !== "number" && c.key !== "status").map((c) => ({
     ...c,
@@ -233,23 +253,27 @@ function OrdersListPage({
     (q) => (q === "all" ? "" : statuses.includes(q as OrderStatus) ? (q as OrderStatus) : "active"),
     (v) => (v === "active" ? null : v || "all"),
   );
+  const allExtraColumns = [
+    {...MARKETPLACE_COLUMN, defaultHidden: type === "fboPosting" ? undefined : true},
+    ...extraColumns,
+  ];
   const {visibleColumns, optionalColumns, enabledColumns, setEnabledColumns} =
     useTableColumns<TableColumnOption>(
       type === "fbs"
         ? [
             ...FBS_BASE_COLUMNS,
-            ...extraColumns.map((column) =>
+            ...allExtraColumns.map((column) =>
               column.key === STATUS_DATE_COLUMNS[status as OrderStatus]?.key
                 ? {...column, defaultHidden: false}
                 : column,
             ),
           ]
-        : extraColumns,
+        : allExtraColumns,
       {storageKey: `orders.${type}.columns`},
     );
   const isColumnVisible = (key: string) =>
     type !== "fbs" || visibleColumns.some((c) => c.key === key);
-  const visibleExtraColumns = extraColumns.filter((column) =>
+  const visibleExtraColumns = allExtraColumns.filter((column) =>
     visibleColumns.some((c) => c.key === column.key),
   );
 
@@ -321,7 +345,9 @@ function OrdersListPage({
     .filter((c) => c !== undefined)
     .filter(
       (c) =>
-        !(type === "fbs" ? extraColumns : visibleExtraColumns).some((extra) => extra.key === c.key),
+        !(type === "fbs" ? allExtraColumns : visibleExtraColumns).some(
+          (extra) => extra.key === c.key,
+        ),
     );
   const sortColumns = [
     ...SORT_COLUMNS.filter(
