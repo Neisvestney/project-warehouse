@@ -136,7 +136,7 @@ function FiltersBar({children, actions, activeCount, onReset, sx, ...stackProps}
       border: 1,
       borderColor: "divider",
       // size="small" buttons are shorter than the 40px size="small" inputs
-      "& .MuiButton-root, & .MuiToggleButton-root": {height: 40},
+      "& .MuiButton-root, & .MuiToggleButton-root": {height: {xs: "auto", sm: 40}, minHeight: 40},
     },
     ...(Array.isArray(sx) ? sx : [sx]),
   ];
@@ -145,10 +145,15 @@ function FiltersBar({children, actions, activeCount, onReset, sx, ...stackProps}
     return (
       // stretch goes last: a page's alignItems is meant for the desktop row and would shrink this column
       <Stack sx={[...cardSx, {alignItems: "stretch"}]} {...stackProps}>
-        <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{alignItems: "center", flexWrap: "wrap"}}>
           {/* the icon stays outside the toggle: a button cannot nest inside another button */}
           {/* gap + the toggle's padding add up to the desktop 6px between icon and caption */}
-          <Stack direction="row" spacing={0.25} useFlexGap sx={{alignItems: "center", flexGrow: 1}}>
+          <Stack
+            direction="row"
+            spacing={0.25}
+            useFlexGap
+            sx={{alignItems: "center", flexGrow: 1, flexShrink: 0}}
+          >
             <FiltersIcon active={!!activeCount} onReset={onReset} />
             <ButtonBase
               onClick={() => setExpanded((v) => !v)}
@@ -172,7 +177,21 @@ function FiltersBar({children, actions, activeCount, onReset, sx, ...stackProps}
               />
             </ButtonBase>
           </Stack>
-          {actions}
+          {actions ? (
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              sx={{
+                alignItems: "center",
+                flexWrap: "wrap",
+                maxWidth: "100%",
+                "& > *": {flex: "1 1 auto", minWidth: 0, maxWidth: "100%"},
+              }}
+            >
+              {actions}
+            </Stack>
+          ) : null}
         </Stack>
         <Collapse in={expanded} id={controlsId}>
           <Stack

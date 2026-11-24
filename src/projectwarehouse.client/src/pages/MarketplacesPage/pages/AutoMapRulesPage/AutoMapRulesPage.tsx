@@ -151,7 +151,7 @@ function AutoMapRulesPage() {
         title="Правила автосопоставления"
         actions={
           canEdit && (
-            <Stack direction="row" spacing={1}>
+            <>
               <Button
                 variant="outlined"
                 startIcon={<AutoFixHighIcon />}
@@ -176,7 +176,7 @@ function AutoMapRulesPage() {
               >
                 Добавить правило
               </Button>
-            </Stack>
+            </>
           )
         }
       >

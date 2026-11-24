@@ -469,14 +469,17 @@ is not counted and not reset. Every page with a `FiltersBar` passes `onReset`; t
 `SearchParamsProvider`, so the whole reset lands in one navigation.
 
 Below `sm` the bar collapses into a single row — the icon, the label with the `activeCount` chip after the caption
-and a chevron (one toggle button; the icon stays outside it, as a button cannot nest in another), and the
-`actions` — and the controls open under it on tap, stacked, each at full width. The widths a page sets on its controls for the desktop row
+and a chevron (one toggle button; the icon stays outside it, as a button cannot nest in another).
+The `actions` stay visible beside the toggle when they fit; otherwise they wrap below it.
+Actions also wrap within their group, with spacing between them and each action limited to the bar's content width.
+The controls open under the header on tap, stacked, each at full width. The widths a page sets on its controls for the desktop row
 (`flexBasis`, `minWidth`, `maxWidth`) are overridden there, so a page never needs its own mobile layout for the
 bar. The collapsed row is why `activeCount` matters: without it a phone user cannot tell a filter is on. An
 `alignItems` passed through `sx` is meant for the desktop row; the collapsed column always stretches its content.
 
-Every `Button` and `ToggleButton` inside the bar (controls and `actions` alike) is forced to 40px, the height of
-`size="small"` inputs — MUI's `size="small"` buttons are shorter. Pages do not set button heights themselves.
+Every `Button` and `ToggleButton` inside the bar (controls and `actions` alike) is 40px high on desktop, the height of
+`size="small"` inputs — MUI's `size="small"` buttons are shorter. Below `sm` this is a minimum height,
+so wrapped labels fit inside the buttons. Pages do not set button heights themselves.
 
 The `sx` prop is **merged** with the component's own defaults via MUI's array `sx` syntax, not replaced.
 
