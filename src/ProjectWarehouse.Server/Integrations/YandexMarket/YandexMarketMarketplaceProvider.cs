@@ -38,9 +38,9 @@ public sealed class YandexMarketMarketplaceProvider(IYandexMarketClient client, 
     public IAsyncEnumerable<IReadOnlyList<ExternalCard>> FetchCardsAsync(MarketplaceCredentials credentials, CancellationToken ct) =>
         PagesAsync(credentials, client.GetCardsAsync(ct), ct);
     public IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchActivePostingsAsync(MarketplaceCredentials credentials, CancellationToken ct) =>
-        PagesAsync(credentials, client.GetActivePostingsAsync(ct), ct);
+        PostingPagesAsync(credentials, client.GetActivePostingsAsync(ct), ct);
     public IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchPostingsAsync(MarketplaceCredentials credentials,
-        ExternalPostingQuery query, CancellationToken ct) => PagesAsync(credentials, client.GetPostingsAsync(query, ct), ct);
+        ExternalPostingQuery query, CancellationToken ct) => PostingPagesAsync(credentials, client.GetPostingsAsync(query, ct), ct);
     public Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(MarketplaceCredentials credentials,
         IReadOnlyList<string> postingNumbers, ExternalPostingScheme scheme, CancellationToken ct) =>
         (scheme == ExternalPostingScheme.Fbo) == (credentials.YandexMarketModel == YandexMarketModel.Fby)
@@ -66,6 +66,34 @@ public sealed class YandexMarketMarketplaceProvider(IYandexMarketClient client, 
         using var scope = context.Use(credentials);
         try { return await call(); }
         catch (YandexMarketApiException ex) { throw Wrap(ex); }
+    }
+
+    private async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> PostingPagesAsync(MarketplaceCredentials credentials,
+        IAsyncEnumerable<IReadOnlyList<ExternalPosting>> source, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var warehousesLoaded = false;
+        string? campaignWarehouseId = null;
+        await foreach (var page in PagesAsync(credentials, source, ct))
+        {
+            if (page.Any(p => p.Scheme == ExternalPostingScheme.Fbs && string.IsNullOrWhiteSpace(p.WarehouseExternalId)))
+            {
+                if (!warehousesLoaded)
+                {
+                    var ids = (await FetchWarehousesAsync(credentials, ct)).Select(w => w.ExternalId)
+                        .Distinct(StringComparer.Ordinal).Take(2).ToArray();
+                    campaignWarehouseId = ids.Length == 1 ? ids[0] : null;
+                    warehousesLoaded = true;
+                }
+                if (campaignWarehouseId is not null)
+                {
+                    yield return page.Select(p => p.Scheme == ExternalPostingScheme.Fbs
+                            && string.IsNullOrWhiteSpace(p.WarehouseExternalId)
+                        ? p with {WarehouseExternalId = campaignWarehouseId} : p).ToArray();
+                    continue;
+                }
+            }
+            yield return page;
+        }
     }
 
     private async IAsyncEnumerable<T> PagesAsync<T>(MarketplaceCredentials credentials, IAsyncEnumerable<T> source,

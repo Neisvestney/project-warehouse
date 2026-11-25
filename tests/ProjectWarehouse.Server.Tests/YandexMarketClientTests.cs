@@ -112,6 +112,113 @@ public class YandexMarketClientTests
     }
 
     [Theory]
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(false, 2)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    [InlineData(true, 2)]
+    public async Task Orders_ResolveMissingWarehouseOnlyForUniqueCampaignWarehouse(bool history, int warehouseCount)
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            var next = request.RequestUri.Query.Contains("pageToken=next");
+            if (path.EndsWith("/warehouses"))
+                return Json(next ? JsonSerializer.Serialize(new { result = new { warehouses = Enumerable.Range(0, warehouseCount)
+                    .Select(i => new { id = 30 + i, name = "Selected", campaignId = 20, express = false }) } }) : """
+                    {"result":{"warehouses":[{"id":99,"name":"Other campaign","campaignId":21,"express":false}],
+                     "paging":{"nextPageToken":"next"}}}
+                    """);
+            return Json(JsonSerializer.Serialize(new
+            {
+                orders = new[] { new { orderId = next ? 101 : 100, campaignId = 20, programType = "FBS",
+                    status = "PROCESSING", substatus = "READY_TO_SHIP", creationDate = "2026-11-20T12:00:00Z",
+                    items = Array.Empty<object>(), delivery = new { type = "PICKUP", dates = new {} } } },
+                paging = next ? null : new { nextPageToken = "next" },
+            }));
+        });
+        var (client, context) = Client(handler, authenticate: true);
+        var provider = new YandexMarketMarketplaceProvider(client, context, NullLogger<YandexMarketMarketplaceProvider>.Instance);
+        var credentials = new MarketplaceCredentials(null, "key", 10, 20);
+        var source = history ? provider.FetchPostingsAsync(credentials,
+            new(ExternalPostingScheme.Fbs, new(2026, 11, 20), new(2026, 11, 21)), default)
+            : provider.FetchActivePostingsAsync(credentials, default);
+        var postings = new List<ExternalPosting>();
+        await foreach (var page in source) postings.AddRange(page);
+        Assert.Equal(new[] {"100", "101"}, postings.Select(p => p.PostingNumber));
+        Assert.All(postings, p => Assert.Equal(warehouseCount == 1 ? "30" : null, p.WarehouseExternalId));
+        Assert.Equal(2, handler.Requests.Count(r => new Uri(r.Url).AbsolutePath.EndsWith("/warehouses")));
+        Assert.All(handler.Requests, r => Assert.Equal("key", r.ApiKey));
+        Assert.Null(context.Credentials);
+    }
+
+    [Theory]
+    [InlineData(false, "explicit")]
+    [InlineData(true, "explicit")]
+    [InlineData(true, null)]
+    public async Task Orders_KeepExplicitWarehouseAndDoNotLookUpWarehousesForFby(bool fby, string? warehouseId)
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            Assert.EndsWith("/orders", request.RequestUri!.AbsolutePath);
+            return Json(JsonSerializer.Serialize(new { orders = new[] { new
+            {
+                orderId = 100, campaignId = 20, programType = fby ? "FBY" : "FBS", status = "PROCESSING",
+                substatus = "READY_TO_SHIP", creationDate = "2026-11-20T12:00:00Z", items = Array.Empty<object>(),
+                delivery = new { warehouseId, dates = new {} },
+            } } }));
+        });
+        var (client, context) = Client(handler);
+        var provider = new YandexMarketMarketplaceProvider(client, context, NullLogger<YandexMarketMarketplaceProvider>.Instance);
+        var credentials = new MarketplaceCredentials(null, "key", 10, 20, fby ? YandexMarketModel.Fby : YandexMarketModel.Fbs);
+        var source = fby ? provider.FetchPostingsAsync(credentials,
+            new(ExternalPostingScheme.Fbo, new(2026, 11, 20), new(2026, 11, 21)), default)
+            : provider.FetchActivePostingsAsync(credentials, default);
+        var postings = new List<ExternalPosting>();
+        await foreach (var page in source) postings.AddRange(page);
+        Assert.Equal(fby ? null : warehouseId, Assert.Single(postings).WarehouseExternalId);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Orders_MissingWarehouseLookupIsIsolatedBetweenInterleavedCampaigns()
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var second = request.Headers.GetValues("Api-Key").Single() == "second";
+            var campaign = second ? 21 : 20;
+            if (request.RequestUri!.AbsolutePath.EndsWith("/warehouses"))
+                return Json("""
+                    {"result":{"warehouses":[{"id":30,"name":"First","campaignId":20,"express":false},
+                     {"id":31,"name":"Second","campaignId":21,"express":false}]}}
+                    """);
+            return Json(JsonSerializer.Serialize(new
+            {
+                orders = new[] { new { orderId = campaign, campaignId = campaign, programType = "FBS", status = "PROCESSING",
+                    substatus = "READY_TO_SHIP", creationDate = "2026-11-20T12:00:00Z", items = Array.Empty<object>(),
+                    delivery = new { dates = new {} } } },
+                paging = request.RequestUri.Query.Contains("pageToken=next") ? null : new { nextPageToken = "next" },
+            }));
+        });
+        var (client, context) = Client(handler, authenticate: true);
+        var provider = new YandexMarketMarketplaceProvider(client, context, NullLogger<YandexMarketMarketplaceProvider>.Instance);
+        await using var first = provider.FetchActivePostingsAsync(new(null, "first", 10, 20), default).GetAsyncEnumerator();
+        await using var second = provider.FetchActivePostingsAsync(new(null, "second", 10, 21), default).GetAsyncEnumerator();
+        for (var page = 0; page < 2; page++)
+        {
+            Assert.True(await first.MoveNextAsync());
+            Assert.Equal("30", Assert.Single(first.Current).WarehouseExternalId);
+            Assert.True(await second.MoveNextAsync());
+            Assert.Equal("31", Assert.Single(second.Current).WarehouseExternalId);
+            Assert.Null(context.Credentials);
+        }
+        Assert.False(await first.MoveNextAsync());
+        Assert.False(await second.MoveNextAsync());
+        Assert.Equal(2, handler.Requests.Count(r => new Uri(r.Url).AbsolutePath.EndsWith("/warehouses")));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Orders_ScopeCampaignAndUseCorrectDateFilters(bool changed)
