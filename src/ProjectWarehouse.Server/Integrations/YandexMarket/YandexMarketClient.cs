@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Options;
 using Neisvestney.Marketplaces.YandexMarket;
 using ProjectWarehouse.Server.Domain;
-using ProjectWarehouse.Server.Infrastructure.Labels;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
@@ -20,7 +19,6 @@ public sealed partial class YandexMarketClient(
     ILogger<YandexMarketClient> logger) : IYandexMarketClient
 {
     private readonly YandexMarketOptions _options = options.Value.YandexMarket;
-    private readonly LabelsOptions _labelOptions = options.Value.Labels;
     private MarketplaceCredentials Credentials => context.Credentials
         ?? throw new InvalidOperationException("Yandex Market credentials are not in scope.");
     private long BusinessId => Credentials.BusinessId

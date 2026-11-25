@@ -74,20 +74,26 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         return Save(merged);
     }
 
-    public static byte[] ReserveFooter(byte[] pdf, double footerPoints, double widthMm, double heightMm)
+    public static byte[] FromPdf(byte[] pdf, double widthMm, double heightMm, double scale)
     {
         using var form = XPdfForm.FromStream(new MemoryStream(pdf));
         using var document = new PdfDocument();
         var page = document.AddPage();
         page.Width = XUnit.FromMillimeter(widthMm);
         page.Height = XUnit.FromMillimeter(heightMm);
-        var scale = Math.Min(page.Width.Point / form.PointWidth,
-            (page.Height.Point - footerPoints) / form.PointHeight);
-        if (scale <= 0)
-            throw new InvalidDataException("The label page is too small for the article footer.");
+        var quarterTurn = form.Page.Rotate % 180 != 0;
+        var visibleWidth = quarterTurn ? form.PointHeight : form.PointWidth;
+        var visibleHeight = quarterTurn ? form.PointWidth : form.PointHeight;
+        var fittedScale = scale * Math.Min(page.Width.Point / visibleWidth,
+            page.Height.Point / visibleHeight);
+        var width = visibleWidth * fittedScale;
+        var height = visibleHeight * fittedScale;
+        var drawWidth = form.PointWidth * fittedScale;
+        var drawHeight = form.PointHeight * fittedScale;
+        // PDFsharp applies /Rotate to the form, but positions it using the unrotated height.
+        var y = (page.Height.Point + height) / 2 - drawHeight;
         using (var gfx = XGraphics.FromPdfPage(page))
-            gfx.DrawImage(form, (page.Width.Point - form.PointWidth * scale) / 2, 0,
-                form.PointWidth * scale, form.PointHeight * scale);
+            gfx.DrawImage(form, page.Width.Point - width, y, drawWidth, drawHeight);
         return Save(document);
     }
 
@@ -112,21 +118,6 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         var lineHeight = _options.FontSize * 1.25;
 
         var layout = _options.Layouts.For(kind);
-        if (kind == LabelKind.YandexMarketLabel)
-        {
-            var text = string.Join(" · ", lines);
-            foreach (var page in document.Pages)
-            {
-                using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
-                var available = page.Width.Point - 2 * layout.MarginX;
-                var measured = gfx.MeasureString(text, font).Width;
-                var fitted = new XFont(EmbeddedLabelFontResolver.FamilyName,
-                    _options.FontSize * Math.Min(1, available / Math.Max(1, measured)));
-                gfx.DrawString(text, fitted, XBrushes.Black, layout.MarginX,
-                    page.Height.Point - layout.MarginY, XStringFormats.BottomLeft);
-            }
-            return Save(document);
-        }
         if (layout.TextCorner == LabelTextCorner.LeftEdge)
         {
             foreach (var page in document.Pages)

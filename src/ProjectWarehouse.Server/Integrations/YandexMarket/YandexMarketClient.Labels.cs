@@ -45,9 +45,7 @@ public sealed partial class YandexMarketClient
                     {
                         if (LabelPdfComposer.PageCount(bytes) != 1)
                             throw new InvalidDataException("Yandex Market parcel label must contain one page.");
-                        var footer = _labelOptions.Layouts.YandexMarketLabel.MarginY
-                            + _labelOptions.FontSize * 1.25 + 2;
-                        pages.Add(new(id, LabelPdfComposer.ReserveFooter(bytes, footer, 58, 40), LabelKind.YandexMarketLabel,
+                        pages.Add(new(id, LabelPdfComposer.FromPdf(bytes, 58, 40, _options.LabelScale), LabelKind.YandexMarketLabel,
                             label.FulfilmentId, Id(label.BoxId)));
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)

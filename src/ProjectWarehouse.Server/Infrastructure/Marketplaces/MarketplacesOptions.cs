@@ -63,7 +63,7 @@ public class LabelLayoutsOptions
     /// </summary>
     public LabelLayout WildberriesSticker { get; set; } = new() { TextCorner = LabelTextCorner.LeftEdge, MarginX = 4 };
 
-    public LabelLayout YandexMarketLabel { get; set; } = new();
+    public LabelLayout YandexMarketLabel { get; set; } = new() { TextCorner = LabelTextCorner.LeftEdge, MarginX = 4 };
 
     public LabelLayout For(LabelKind kind) => kind switch
     {
@@ -109,6 +109,7 @@ public enum LabelTextCorner
 
 public class YandexMarketOptions
 {
+    public double LabelScale { get; set; } = 0.92;
     public int TimeoutSeconds { get; set; } = 60;
     public int PageDelayMs { get; set; } = 200;
     public int ImportWindowPastDays { get; set; } = 14;
