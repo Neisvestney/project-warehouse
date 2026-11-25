@@ -3,7 +3,7 @@ import {useQuery} from "@tanstack/react-query";
 import {useNavigate} from "react-router";
 import {EventCalendar} from "@mui/x-scheduler";
 import {ruRU} from "@mui/x-scheduler/locales";
-import type {SchedulerEvent} from "@mui/x-scheduler/models";
+import type {EventCalendarPreferences, SchedulerEvent} from "@mui/x-scheduler/models";
 import {ru as ruDateFns} from "date-fns/locale/ru";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
@@ -43,6 +43,12 @@ import {
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useSettledValue} from "@/hooks/useSettledValue";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import {calendarDayHighlights} from "@/features/calendar/calendarDayHighlights";
+import {findCalendarDayHighlight} from "@/features/calendar/calendarDayHighlightUtils";
+import {
+  getCalendarDayHighlightStyle,
+  getMonthDayHighlightStyles,
+} from "@/components/calendar/calendarDayHighlightStyles";
 
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
@@ -76,6 +82,12 @@ function AppEvents({}: AppEventsProps) {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down("sm"));
   const [visibleDate, setVisibleDate] = useSyncedWithQueryState("month", parseMonth, formatMonth);
   const [visibleDay, setVisibleDay] = useSyncedWithQueryState("eventDay", parseDay, formatDay);
+  const [calendarPreferences, setCalendarPreferences] = useState<
+    Required<Pick<EventCalendarPreferences, "weekStartsOn" | "showWeekends">>
+  >({
+    weekStartsOn: 1,
+    showWeekends: true,
+  });
   const days = [visibleDay, addDays(visibleDay, -1), addDays(visibleDay, -2)];
 
   const startDate = useMemo(
@@ -182,6 +194,7 @@ function AppEvents({}: AppEventsProps) {
     <div style={{height: "calc(min(800px, 100vh - 120px))", width: "100%", position: "relative"}}>
       <EventCalendar
         events={events}
+        sx={getMonthDayHighlightStyles(visibleDate, calendarPreferences, calendarDayHighlights)}
         readOnly
         view="month"
         views={["month"]}
@@ -191,7 +204,13 @@ function AppEvents({}: AppEventsProps) {
           today: "Сегодня",
           hiddenEvents: (c) => `еще ${c}..`,
         }}
-        defaultPreferences={{ampm: false, isSidePanelOpen: false}}
+        defaultPreferences={{ampm: false, isSidePanelOpen: false, ...calendarPreferences}}
+        onPreferencesChange={(preferences) =>
+          setCalendarPreferences((current) => ({
+            weekStartsOn: preferences.weekStartsOn ?? current.weekStartsOn,
+            showWeekends: preferences.showWeekends ?? current.showWeekends,
+          }))
+        }
         onEventEditingStart={(occurrence, details) => {
           details.cancel();
           const link = linkById.get(occurrence.id);
@@ -251,6 +270,7 @@ function MobileEventDayCard({
   const listId = useId();
   const hiddenCount = Math.max(0, events.length - visibleCount);
   const canExpand = expanded || hiddenCount > 0 || hasClippedTitle;
+  const highlight = findCalendarDayHighlight(parseDateOnly(day), calendarDayHighlights);
 
   useEffect(() => {
     const list = listRef.current;
@@ -288,10 +308,16 @@ function MobileEventDayCard({
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
+        ...(highlight ? getCalendarDayHighlightStyle(highlight) : {}),
       }}
     >
       <Typography variant="subtitle1" component="h2" noWrap sx={{mb: 1, flexShrink: 0}}>
         {day === todayDateOnly() ? "Сегодня" : formatWeekday(day)}, {formatDateOnly(day)}
+        {highlight && (
+          <Box component="span" sx={{fontSize: "0.75rem", color: "text.secondary"}}>
+            {` · ${highlight.label}`}
+          </Box>
+        )}
       </Typography>
       <Box
         ref={listRef}

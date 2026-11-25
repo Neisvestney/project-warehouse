@@ -32,6 +32,7 @@ import {fetchWithTimeout} from "@/utils/fetchWithTimeout.ts";
 import {dropOverlayHistoryEntries} from "@/hooks/useBackClosable.ts";
 import {installClientLogCapture} from "@/services/telemetryLogs.ts";
 import {PageTitleProvider} from "@/contexts/PageTitle/PageTitleProvider.tsx";
+import {SeasonalProvider} from "@/contexts/Seasonal/SeasonalProvider";
 
 setupApiClient();
 installClientLogCapture();
@@ -62,7 +63,9 @@ function mountApp() {
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
           <PageTitleProvider>
-            <App />
+            <SeasonalProvider>
+              <App />
+            </SeasonalProvider>
           </PageTitleProvider>
         </QueryClientProvider>
       </BrowserRouter>

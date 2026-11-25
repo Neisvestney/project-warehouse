@@ -32,6 +32,45 @@ a group with no visible children and a block with no visible rows. `MainAppBarLa
 hands it both to `SidebarLayout` and to `MainAppBar` for the drawer. Routes come from the same blocks — see
 [Nav routes](#nav-routes).
 
+### Seasonal decorations
+
+`SeasonalProvider` resolves recurring seasons using the device's local date. It refreshes at local
+midnight, on window focus and when the tab becomes visible. `features/seasonal/seasons.ts` defines
+inclusive month/day ranges, including ranges crossing January 1. There are no manual overrides.
+
+`SeasonalDecorationSlot` maps each season to optional `background`, `appBar` and `brand` components.
+To add a seasonal effect, register its dates in `seasons.ts` and its components in the slot registry;
+the navigation and layout consume those generic slots. Concurrent seasons render their own components.
+
+The New Year season runs from November 25 through January 14. `MainAppBarLayout` hosts its
+pointer-transparent snowfall; `MainAppBar` carries a light garland, and `MainNavBrand` places
+an SVG hat tilted over the brand mark's right ear, shifted toward the centre with its tip hanging outward,
+including on the login page.
+Styled roots and keyframes live in `newYearStyles.ts`; their scheme selector and `sm` breakpoint
+follow the MUI theme used by the rest of the shell.
+Snow occupies the shell's full document height and scrolls with it, in a local background layer behind
+page content and navigation. Particle travel uses that height rather than the viewport height.
+A `ResizeObserver` scales animation durations and negative delays with the travel distance, keeping
+vertical speed at 30–50 pixels per second as page content grows or shrinks.
+Snowflakes are blue in the light scheme and white in the dark scheme. The snowfall has 44 particles;
+small screens render 22 particles and half the garland bulbs. `prefers-reduced-motion` hides the snowfall and
+keeps the garland static; print hides the decorations. Scanner and print routes have no snowfall.
+
+### `AppEvents` calendar highlights
+
+`features/calendar/calendarDayHighlights.ts` defines highlighted dates, their labels and appearance.
+Month and day are one-based; an omitted year repeats the rule annually, while a supplied year limits
+it to that year. The first matching rule wins, so put specific exceptions before recurring rules.
+Highlights are independent of the current season; December 31 has a tree background and a gold inset border.
+
+The month grid and mobile cards share matching and appearance. Appearance accepts only background
+and shadow properties, preserving cell dimensions; the mobile label shares the single-line date heading.
+Print omits decorative backgrounds and shadows.
+
+The scheduler has no day-cell slot. `components/calendar/calendarDayHighlightStyles.ts` isolates its
+public-class selectors, while `calendarDayHighlightUtils.ts` calculates visible cells, including
+adjacent months, the first weekday and weekend visibility. Leap dates match only when present in the grid.
+
 ### `GlobalSearchModal`
 
 Text search over `/api/commoncontent/search` — up to 10 entities of every searchable type, ranked by relevance on

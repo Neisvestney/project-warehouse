@@ -28,6 +28,7 @@ import type {SidebarNavEntry} from "@/layouts/SidebarLayout/navItems.ts";
 import MainNavDrawer from "./MainNavDrawer.tsx";
 import MainNavBrand from "./MainNavBrand.tsx";
 import {extractErrorMessage} from "@/utils/errorUtils.ts";
+import {SeasonalDecorationSlot} from "@/components/seasonal/SeasonalDecorationSlot";
 
 export const MAIN_APP_BAR_HEIGHT = 40;
 
@@ -261,6 +262,7 @@ function MainAppBar({navEntries}: AppBarProps) {
             </Box>
           </Toolbar>
         </Container>
+        <SeasonalDecorationSlot slot="appBar" />
       </AppBar>
       <MainNavDrawer
         open={navDrawerOpen}

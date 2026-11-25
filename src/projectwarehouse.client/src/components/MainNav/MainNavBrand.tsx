@@ -4,6 +4,7 @@ import type {TypographyProps} from "@mui/material/Typography";
 import type {SvgIconProps} from "@mui/material/SvgIcon";
 import {Link} from "react-router";
 import {LogoIcon} from "@/components/icons/LogoIcon";
+import {SeasonalDecorationSlot} from "@/components/seasonal/SeasonalDecorationSlot";
 
 // The light-scheme app bar is already primary, so the brand mark only takes the accent color in dark.
 const brandDarkSx = (theme: Theme) =>
@@ -35,14 +36,28 @@ function MainNavBrand({
 
   const content = (
     <>
-      <LogoIcon
-        {...iconSizeProps}
-        sx={[
-          {mr: 1, ...(iconSizeProps.sx ?? {})},
-          color === "primary" ? {color: "primary.main"} : brandDarkSx,
-          {mb: "2px"},
-        ]}
-      />
+      <Box
+        component="span"
+        sx={{
+          position: "relative",
+          display: "inline-flex",
+          mr: 1,
+          mb: "2px",
+          fontSize:
+            typeof iconFontSize === "number"
+              ? iconFontSize
+              : {small: 20, large: 35, inherit: "inherit", medium: 24}[iconFontSize ?? "medium"],
+        }}
+      >
+        <LogoIcon
+          {...iconSizeProps}
+          sx={[
+            {...(iconSizeProps.sx ?? {})},
+            color === "primary" ? {color: "primary.main"} : brandDarkSx,
+          ]}
+        />
+        <SeasonalDecorationSlot slot="brand" />
+      </Box>
       <Typography
         variant={typographyVariant}
         noWrap
