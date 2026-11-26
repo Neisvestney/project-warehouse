@@ -1343,9 +1343,16 @@ or more chunks (`minShareCount: 2`) each get a chunk of their own, named `app-<p
 shared component is inlined into every route chunk importing it, and editing one header rewrites
 every page.
 
-A hash change still cascades into importers, because a chunk embeds the filenames it imports —
-touching a widely used component rewrites its own chunk plus the entry and the routes that reference
-it. That cascade is the floor; the config removes the duplication on top of it.
+**Chunk import maps** (`build.chunkImportMap`). Modern chunks import stable specifiers resolved by
+the inline `importmap` in `index.html`; `importmap.json` contains the same mapping to hashed assets.
+Dependency content changes leave importer filenames stable. Changes to the preload dependency set
+participate in the importer hash, so a hashed URL cannot refer to different bytes across builds.
+Vite must include the preload-hashing fixes from 8.3.5 and the stable module-ID fix from 8.3.6.
+
+The legacy build uses a separate `systemjs-importmap`. Both maps resolve to emitted assets;
+import-map indirection preserves the logical `modulepreload` set. Workbox precaches the modern
+assets and revisions `index.html`, `importmap.json` and `importmap.legacy.json`, keeping the mappings
+and their modern chunks together.
 
 ## PWA
 

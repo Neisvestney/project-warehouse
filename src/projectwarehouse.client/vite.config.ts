@@ -86,6 +86,7 @@ const sharedDirs =
 // One chunk per shared module, so editing a widely used component invalidates only its own file
 // instead of every page chunk that inlined it.
 const sharedGroup: CodeSplittingGroup = {
+  debugName: "shared-app",
   name: (moduleId) =>
     "app-" +
     moduleId
@@ -164,6 +165,7 @@ export default defineConfig(({command}) => ({
     "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
   },
   build: {
+    chunkImportMap: true,
     rolldownOptions: {
       output: {
         codeSplitting: {
