@@ -6,18 +6,20 @@ const snowflakesPerBand = 44;
 
 export function NewYearSnow() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [bandCount, setBandCount] = useState(1);
+  const [snowHeight, setSnowHeight] = useState(snowBandHeight);
+  const bandCount = Math.max(1, Math.ceil(snowHeight / snowBandHeight));
+  const durationScale = (snowHeight + 24) / (snowBandHeight + 24);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
-    const updateBandCount = () => {
-      setBandCount(Math.max(1, Math.ceil(root.getBoundingClientRect().height / snowBandHeight)));
+    const updateSnowHeight = () => {
+      setSnowHeight(root.getBoundingClientRect().height);
     };
 
-    updateBandCount();
-    const observer = new ResizeObserver(updateBandCount);
+    updateSnowHeight();
+    const observer = new ResizeObserver(updateSnowHeight);
     observer.observe(root);
     return () => observer.disconnect();
   }, []);
@@ -26,7 +28,7 @@ export function NewYearSnow() {
     <NewYearSnowRoot
       ref={rootRef}
       aria-hidden="true"
-      style={{"--snow-band-height": `${snowBandHeight}px`} as CSSProperties}
+      style={{"--snow-height": `${snowHeight}px`} as CSSProperties}
     >
       {Array.from({length: bandCount * snowflakesPerBand}, (_, i) => (
         <span
@@ -34,10 +36,10 @@ export function NewYearSnow() {
           style={
             {
               left: `${(i * 37) % 100}%`,
-              top: Math.floor(i / snowflakesPerBand) * snowBandHeight - 12,
+              top: -12,
               "--snow-size": `${3 + (i % 4)}px`,
-              "--snow-duration": `${18 + (i % 13)}s`,
-              "--snow-delay": `${-i * 2.7}s`,
+              "--snow-duration": `${(18 + (i % 13)) * durationScale}s`,
+              "--snow-delay": `${-i * 2.7 * durationScale}s`,
               "--snow-drift": `${(i % 2 === 0 ? 1 : -1) * (25 + (i % 5) * 12)}px`,
             } as CSSProperties
           }

@@ -49,11 +49,11 @@ including on the login page.
 Styled roots and keyframes live in `newYearStyles.ts`; their scheme selector and `sm` breakpoint
 follow the MUI theme used by the rest of the shell.
 Snow occupies the shell's full document height and scrolls with it, in a local background layer behind
-page content and navigation. Snowflakes occupy fixed 900-pixel vertical bands with independent animation
-timing. A `ResizeObserver` adjusts the number of bands to cover the document; existing particles retain
-their positions, travel distance and animation timing as page content grows or shrinks.
-Snowflakes are blue in the light scheme and white in the dark scheme. Each band has 44 particles;
-small screens render 22 particles per band and half the garland bulbs. `prefers-reduced-motion` hides the snowfall and
+page content and navigation. Each snowflake travels from above the layer to below its bottom edge, so
+animation loops occur outside the visible layer. A `ResizeObserver` adjusts the travel distance and particle
+count to the document height; animation duration scales with travel distance to keep falling speed stable.
+Snowflakes are blue in the light scheme and white in the dark scheme. Every 900 pixels of height add 44 particles;
+small screens render half the particles and half the garland bulbs. `prefers-reduced-motion` hides the snowfall and
 keeps the garland static; print hides the decorations. Scanner and print routes have no snowfall.
 
 ### `AppEvents` calendar highlights

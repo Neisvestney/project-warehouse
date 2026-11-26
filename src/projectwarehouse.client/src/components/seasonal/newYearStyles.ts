@@ -1,7 +1,7 @@
 import {keyframes, styled} from "@mui/material/styles";
 
 const snowfall = keyframes({
-  to: {transform: "translate(var(--snow-drift), calc(var(--snow-band-height) + 24px))"},
+  to: {transform: "translate(var(--snow-drift), calc(var(--snow-height) + 24px))"},
 });
 
 const glow = keyframes({
