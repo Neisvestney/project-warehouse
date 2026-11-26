@@ -1,11 +1,13 @@
 import {useState} from "react";
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   FormControlLabel,
   FormHelperText,
@@ -28,19 +30,28 @@ export interface LabelsPrintOptions {
   grouping: OrderLabelsGrouping;
   forceRegenerate: boolean;
   printAccountName: boolean;
+  printArticle: boolean;
 }
 
 interface DownloadLabelsDialogProps {
   open: boolean;
   isPending: boolean;
+  hasMixedMarketplaces?: boolean;
   onClose: () => void;
   onConfirm: (options: LabelsPrintOptions) => void;
 }
 
-function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLabelsDialogProps) {
+function DownloadLabelsDialog({
+  open,
+  isPending,
+  hasMixedMarketplaces = false,
+  onClose,
+  onConfirm,
+}: DownloadLabelsDialogProps) {
   const [grouping, setGrouping] = useState<OrderLabelsGrouping>(loadGrouping);
   // deliberately not remembered: a stuck flag would refetch from the marketplace on every print
   const [forceRegenerate, setForceRegenerate] = useState(false);
+  const [printArticle, setPrintArticle] = useState(true);
   // follows the grouping rather than being remembered: account stacks are where the name matters
   const [printAccountName, setPrintAccountName] = useState(grouping === "accountArticle");
 
@@ -52,6 +63,7 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
 
   function resetFlags() {
     setForceRegenerate(false);
+    setPrintArticle(true);
     setPrintAccountName(grouping === "accountArticle");
   }
 
@@ -67,7 +79,20 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
       slotProps={{transition: {onExited: resetFlags}}}
     >
       <DialogTitle>Скачать этикетки</DialogTitle>
-      <DialogContent dividers>
+      <Divider />
+      {hasMixedMarketplaces && (
+        <Alert severity="info" sx={{borderRadius: 0}}>
+          Выбраны заказы разных маркетплейсов. Этикетки могут отличаться по размеру и формату.
+        </Alert>
+      )}
+      <DialogContent dividers sx={{display: "flex", flexDirection: "column", borderTop: 0}}>
+        <FormControlLabel
+          sx={{mb: 2}}
+          control={
+            <Checkbox checked={printArticle} onChange={(e) => setPrintArticle(e.target.checked)} />
+          }
+          label="Печатать артикул"
+        />
         <FormControl>
           <FormLabel id="labels-grouping-label">Группировать по</FormLabel>
           <RadioGroup
@@ -121,7 +146,7 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
         <Button
           variant="contained"
           loading={isPending}
-          onClick={() => onConfirm({grouping, forceRegenerate, printAccountName})}
+          onClick={() => onConfirm({grouping, forceRegenerate, printAccountName, printArticle})}
         >
           Скачать
         </Button>

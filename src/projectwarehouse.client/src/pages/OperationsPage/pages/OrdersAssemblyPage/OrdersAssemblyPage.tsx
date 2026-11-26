@@ -176,7 +176,7 @@ function OrdersAssemblyPage() {
   const selectedOrders = allOrders.filter((o) =>
     o.assemblyTasks.some((t) => selectedTaskIds.has(t.id)),
   );
-  const labelOrderIds = selectedOrders.filter((o) => o.marketplaceOrder).map((o) => o.id);
+  const labelOrders = selectedOrders.filter((o) => o.marketplaceOrder);
   const visibleOrderIds = new Set(orders.map((o) => o.id));
   const hiddenSelectedCount = selectedOrders.filter((o) => !visibleOrderIds.has(o.id)).length;
 
@@ -244,8 +244,8 @@ function OrdersAssemblyPage() {
                 },
               ]
             : []),
-          ...(labelOrderIds.length > 0
-            ? [{...downloadLabels.getAction(labelOrderIds), count: labelOrderIds.length}]
+          ...(labelOrders.length > 0
+            ? [{...downloadLabels.getAction(labelOrders), count: labelOrders.length}]
             : []),
         ]
       : [];

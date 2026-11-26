@@ -24,4 +24,6 @@ public class OrderLabelsRequest
 
     /// <summary>Stamp the account's short name (its full name when unset) above the articles.</summary>
     public bool PrintAccountName { get; init; }
+
+    public bool PrintArticle { get; init; } = true;
 }

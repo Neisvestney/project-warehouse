@@ -1447,7 +1447,7 @@ public class OrdersController(
         try
         {
             bundle = await labels.BuildAsync(orderIds, request.Grouping, GetCurrentUserId(),
-                request.ForceRegenerate, request.PrintAccountName, ct);
+                request.ForceRegenerate, request.PrintAccountName, request.PrintArticle, ct);
         }
         catch (ValidationException ex)
         {

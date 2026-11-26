@@ -1,6 +1,7 @@
 import {useState} from "react";
 import LocalPrintshopIcon from "@mui/icons-material/LocalPrintshop";
 import type {BulkAction} from "@/components/BulkBar";
+import type {MarketplaceType} from "@/api/types.gen";
 import DownloadLabelsDialog, {type LabelsPrintOptions} from "./DownloadLabelsDialog";
 import LabelsErrorDialog from "./LabelsErrorDialog";
 import {useDownloadLabels} from "./useDownloadLabels";
@@ -9,6 +10,7 @@ import {useDownloadLabels} from "./useDownloadLabels";
 export function useDownloadLabelsAction() {
   // captured on click, so the dialog prints what was selected when it opened
   const [dialogOrderIds, setDialogOrderIds] = useState<string[] | null>(null);
+  const [hasMixedMarketplaces, setHasMixedMarketplaces] = useState(false);
   const {download, isPending, error, clearError} = useDownloadLabels();
 
   async function handleConfirm(options: LabelsPrintOptions) {
@@ -18,7 +20,10 @@ export function useDownloadLabelsAction() {
     setDialogOrderIds(null);
   }
 
-  function getAction(orderIds: string[]): BulkAction {
+  function getAction(
+    orders: {id: string; marketplaceOrder?: {marketplaceType: MarketplaceType} | null}[],
+  ): BulkAction {
+    const orderIds = orders.map((order) => order.id);
     return {
       key: "downloadLabels",
       label: "Скачать этикетки",
@@ -26,7 +31,16 @@ export function useDownloadLabelsAction() {
       primary: true,
       pending: isPending,
       disabled: orderIds.length === 0 || isPending,
-      onClick: () => setDialogOrderIds(orderIds),
+      onClick: () => {
+        setHasMixedMarketplaces(
+          new Set(
+            orders.flatMap((order) =>
+              order.marketplaceOrder ? [order.marketplaceOrder.marketplaceType] : [],
+            ),
+          ).size > 1,
+        );
+        setDialogOrderIds(orderIds);
+      },
     };
   }
 
@@ -35,6 +49,7 @@ export function useDownloadLabelsAction() {
       <DownloadLabelsDialog
         open={dialogOrderIds != null}
         isPending={isPending}
+        hasMixedMarketplaces={hasMixedMarketplaces}
         onClose={() => setDialogOrderIds(null)}
         onConfirm={handleConfirm}
       />

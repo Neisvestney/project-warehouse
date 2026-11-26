@@ -173,10 +173,7 @@ function OrdersFbsPage() {
         }
         bulkActions={(orders) => {
           const rebindAction = canEdit ? rebind.getAction(orders) : null;
-          return [
-            downloadLabels.getAction(orders.map((o) => o.id)),
-            ...(rebindAction ? [rebindAction] : []),
-          ];
+          return [downloadLabels.getAction(orders), ...(rebindAction ? [rebindAction] : [])];
         }}
         marketplaceFilters
         supplyFilter

@@ -18,6 +18,7 @@ interface DownloadLabelsOptions {
   grouping?: OrderLabelsGrouping;
   forceRegenerate?: boolean;
   printAccountName?: boolean;
+  printArticle?: boolean;
   fileName?: string;
 }
 
@@ -38,6 +39,7 @@ export function useDownloadLabels() {
     grouping = "none",
     forceRegenerate = false,
     printAccountName = false,
+    printArticle = true,
     fileName = "labels.pdf",
   }: DownloadLabelsOptions): Promise<boolean> {
     setIsPending(true);
@@ -48,7 +50,7 @@ export function useDownloadLabels() {
       // The generated *Options helpers mistype binary endpoints, so the SDK function is called
       // directly with parseAs: "blob" — same approach as useFileBlobUrl.
       const response = await ordersGetLabels({
-        body: {orderIds, grouping, forceRegenerate, printAccountName},
+        body: {orderIds, grouping, forceRegenerate, printAccountName, printArticle},
         parseAs: "blob",
         throwOnError: false,
       });

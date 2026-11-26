@@ -1572,7 +1572,10 @@ manual refresh.
   a stuck flag would refetch every label from the marketplace on each print. A «Печатать название аккаунта»
   checkbox maps to `printAccountName`; it is not remembered either and follows the grouping — switching to
   `По магазинам, затем по артикулам` ticks it, any other grouping clears it, and the user can override it either
-  way. On close it resets to that grouping default. It sends **all** selected orders:
+  way. On close it resets to that grouping default. «Печатать артикул» maps to `printArticle`, defaults to
+  enabled and resets to enabled on close. It controls the WMS article overlay independently of the account
+  name and grouping. An informational alert appears when the captured selection contains multiple marketplace
+  types; downloading remains available. It sends **all** selected orders:
   the action _could_ know in advance whether an order has a stored label, but filtering the user's selection for
   them is not its job — the server's refusal comes back with a clear message.
 - `useRebindOrdersAction` — the bulk «Обновить привязку» action in the FBS list's selection toolbar.
@@ -1581,8 +1584,8 @@ manual refresh.
   rebound, unchanged and refused orders — comes up in `RebindResultDialog`. The order page uses `isRebindable`
   for its own «Обновить привязку» button, painted `warning` while a line's snapshot differs from its card's
   mapping.
-- `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group and
-  nothing to regenerate on demand, so there is no dialog. It takes `MarketplaceOrderDetailsDto`, whose `parcels`
+- `DownloadOrderLabelButton` — the button in the FBS order page header. It opens `DownloadLabelsDialog`
+  and downloads the order's labels with the selected print options. It takes `MarketplaceOrderDetailsDto`, whose `parcels`
   carry the labels: the button is always visible but greys out when some parcel has no `labelFileId` and the
   status is not `awaitingDeliver`, with a tooltip explaining why.
 - `LabelsErrorDialog` — the refusal is shown as a modal rather than a snackbar: both `marketplaceLabelNotReady`

@@ -2525,6 +2525,7 @@ export type OrderLabelsRequest = {
    * Stamp the account's short name (its full name when unset) above the articles.
    */
   printAccountName: boolean;
+  printArticle: boolean;
 };
 
 /**
