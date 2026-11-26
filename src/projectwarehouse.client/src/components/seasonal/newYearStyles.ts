@@ -1,7 +1,7 @@
 import {keyframes, styled} from "@mui/material/styles";
 
 const snowfall = keyframes({
-  to: {transform: "translate(var(--snow-drift), calc(100% + 24px))"},
+  to: {transform: "translate(var(--snow-drift), calc(var(--snow-band-height) + 24px))"},
 });
 
 const glow = keyframes({
@@ -20,11 +20,10 @@ export const NewYearSnowRoot = styled("div")(({theme}) => [
     pointerEvents: "none",
     "& span": {
       position: "absolute",
-      top: -12,
       width: "var(--snow-size)",
-      height: "100%",
+      height: "var(--snow-size)",
       opacity: 0.85,
-      animation: `${snowfall} calc(var(--snow-duration) * var(--snow-duration-scale, 1)) calc(var(--snow-delay) * var(--snow-duration-scale, 1)) linear infinite`,
+      animation: `${snowfall} var(--snow-duration) var(--snow-delay) linear infinite`,
       "&::before": {
         content: '""',
         display: "block",

@@ -1,32 +1,40 @@
-﻿import {useLayoutEffect, useRef, type CSSProperties} from "react";
+﻿import {useLayoutEffect, useRef, useState, type CSSProperties} from "react";
 import {NewYearGarlandRoot, NewYearHatRoot, NewYearSnowRoot} from "./newYearStyles";
+
+const snowBandHeight = 900;
+const snowflakesPerBand = 44;
 
 export function NewYearSnow() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [bandCount, setBandCount] = useState(1);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
-    const updateDuration = () => {
-      const distance = root.getBoundingClientRect().height + 24;
-      root.style.setProperty("--snow-duration-scale", String(distance / 900));
+    const updateBandCount = () => {
+      setBandCount(Math.max(1, Math.ceil(root.getBoundingClientRect().height / snowBandHeight)));
     };
 
-    updateDuration();
-    const observer = new ResizeObserver(updateDuration);
+    updateBandCount();
+    const observer = new ResizeObserver(updateBandCount);
     observer.observe(root);
     return () => observer.disconnect();
   }, []);
 
   return (
-    <NewYearSnowRoot ref={rootRef} aria-hidden="true">
-      {Array.from({length: 44}, (_, i) => (
+    <NewYearSnowRoot
+      ref={rootRef}
+      aria-hidden="true"
+      style={{"--snow-band-height": `${snowBandHeight}px`} as CSSProperties}
+    >
+      {Array.from({length: bandCount * snowflakesPerBand}, (_, i) => (
         <span
           key={i}
           style={
             {
               left: `${(i * 37) % 100}%`,
+              top: Math.floor(i / snowflakesPerBand) * snowBandHeight - 12,
               "--snow-size": `${3 + (i % 4)}px`,
               "--snow-duration": `${18 + (i % 13)}s`,
               "--snow-delay": `${-i * 2.7}s`,
