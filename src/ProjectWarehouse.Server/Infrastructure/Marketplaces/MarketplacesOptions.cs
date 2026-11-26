@@ -36,7 +36,7 @@ public class LabelsOptions
     /// <summary>Where the article lines go, per label format — each one leaves its free space elsewhere.</summary>
     public LabelLayoutsOptions Layouts { get; set; } = new();
 
-    /// <summary>Age after which a cached label of a posting past awaiting_deliver is released.</summary>
+    // Retention after the latest shipment, delivery or cancellation; fetched time if all are absent.
     public int CacheTtlDays { get; set; } = 7;
 
     public string GcCron { get; set; } = "0 15 3 * * ?";

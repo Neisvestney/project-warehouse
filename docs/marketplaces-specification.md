@@ -1424,7 +1424,7 @@ Quartz регистрируется с in-memory хранилищем задач
       "OzonPostingLabel": { "TextCorner": "TopRight", "MarginX": 6, "MarginY": 6 },
       "WildberriesSticker": { "TextCorner": "LeftEdge", "MarginX": 4 }
     },
-    "CacheTtlDays": 7,
+    "CacheTtlDays": 30,
     "GcCron": "0 15 3 * * ?",
     "MaxOrdersPerJob": 1000
   }

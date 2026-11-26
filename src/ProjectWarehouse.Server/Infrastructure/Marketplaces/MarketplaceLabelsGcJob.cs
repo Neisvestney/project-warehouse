@@ -6,11 +6,6 @@ using Quartz;
 
 namespace ProjectWarehouse.Server.Infrastructure.Marketplaces;
 
-/// <summary>
-/// Drops the reference to cached labels older than <c>Labels:CacheTtlDays</c>; the files themselves become
-/// orphans and <see cref="Files.DataFilesGcJob"/> removes them. An awaiting_deliver posting keeps its parcels' labels:
-/// it is the one about to be packed, and it is also the only status the marketplace can reprint for.
-/// </summary>
 [DisallowConcurrentExecution]
 public class MarketplaceLabelsGcJob(
     ApplicationDbContext db,
@@ -27,8 +22,18 @@ public class MarketplaceLabelsGcJob(
         var cutoff = DateTime.UtcNow.AddDays(-options.Value.Labels.CacheTtlDays);
         var released = await db.MarketplaceParcels
             .Where(p => p.LabelFileId != null
-                        && p.LabelFetchedAt < cutoff
-                        && p.MarketplaceOrder.Status != MarketplaceOrderStatus.AwaitingDeliver)
+                        && (p.MarketplaceOrder.Status == MarketplaceOrderStatus.Delivered
+                            || p.MarketplaceOrder.Status == MarketplaceOrderStatus.Cancelled))
+            .Where(p => p.MarketplaceOrder.Order.IsExternal
+                        || p.MarketplaceOrder.Order.Status == OrderStatus.Shipped)
+            // The maximum is expired only when every available event date is expired.
+            .Where(p => (p.MarketplaceOrder.Order.ShippedAt == null || p.MarketplaceOrder.Order.ShippedAt < cutoff)
+                        && (p.MarketplaceOrder.DeliveredAt == null || p.MarketplaceOrder.DeliveredAt < cutoff)
+                        && (p.MarketplaceOrder.CancelledAt == null || p.MarketplaceOrder.CancelledAt < cutoff))
+            .Where(p => p.MarketplaceOrder.Order.ShippedAt != null
+                        || p.MarketplaceOrder.DeliveredAt != null
+                        || p.MarketplaceOrder.CancelledAt != null
+                        || p.LabelFetchedAt < cutoff)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.LabelFileId, (Guid?)null)
                 .SetProperty(p => p.LabelKind, (LabelKind?)null)
